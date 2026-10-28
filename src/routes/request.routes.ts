@@ -72,7 +72,7 @@ requestRouter.post('/', (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  db.requests.unshift(newRequest);
+  db.saveRequest(newRequest);
   res.status(201).json(newRequest);
 });
 
@@ -124,6 +124,7 @@ requestRouter.post('/:id/accept', (req, res) => {
 
   target.status = 'accepted';
   target.updatedAt = new Date().toISOString();
+  db.saveRequest(target);
 
   res.json({
     accepted: target,
@@ -141,6 +142,7 @@ requestRouter.post('/:id/decline', (req, res) => {
   target.status = 'declined';
   target.declineReason = req.body.reason || 'Not available';
   target.updatedAt = new Date().toISOString();
+  db.saveRequest(target);
   res.json(target);
 });
 
@@ -160,6 +162,7 @@ requestRouter.post('/:id/cancel', (req, res) => {
   target.cancellationReason = reason;
   target.cancelledBy = (req.headers['x-demo-user-id'] as string) || 'usr_rishi';
   target.updatedAt = new Date().toISOString();
+  db.saveRequest(target);
 
   res.json(target);
 });
@@ -174,6 +177,7 @@ requestRouter.post('/:id/handover', (req, res) => {
   target.status = 'handed_over';
   target.handoverConfirmedAt = new Date().toISOString();
   target.updatedAt = new Date().toISOString();
+  db.saveRequest(target);
 
   res.json(target);
 });
@@ -199,9 +203,11 @@ requestRouter.post('/:id/return', (req, res) => {
       if (listing.totalQuantity === 0) {
         listing.status = 'closed';
       }
+      db.saveListing(listing);
     }
   }
 
+  db.saveRequest(target);
   res.json(target);
 });
 

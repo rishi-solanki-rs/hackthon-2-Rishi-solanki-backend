@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from './config';
+import { initMongoDB, isMongoConnected } from './db/mongo';
+import { db } from './store/dataStore';
 import { authRouter } from './routes/auth.routes';
 import { userRouter } from './routes/user.routes';
 import { planRouter } from './routes/plan.routes';
@@ -22,6 +24,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     service: 'sidekit-server',
     geminiEnabled: config.geminiEnabled && Boolean(config.geminiApiKey),
+    mongoConnected: isMongoConnected(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -41,7 +44,16 @@ if (process.env.NODE_ENV !== 'test') {
   app.listen(config.port, () => {
     console.log(`Sidekit backend listening at http://localhost:${config.port}`);
   });
+
+  initMongoDB()
+    .then(async (connected) => {
+      if (connected) {
+        await db.syncFromMongo();
+      }
+    })
+    .catch((e: any) => {
+      console.warn('Initial Mongo sync warning:', e.message);
+    });
 }
 
 export default app;
-

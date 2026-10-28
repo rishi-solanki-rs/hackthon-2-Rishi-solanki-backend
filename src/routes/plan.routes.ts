@@ -29,7 +29,7 @@ planRouter.post('/', async (req, res) => {
       updatedAt: new Date().toISOString(),
     };
 
-    db.plans.unshift(newPlan);
+    db.savePlan(newPlan);
     res.status(201).json(newPlan);
   } catch (err: any) {
     res.status(500).json({ message: err.message || 'Error generating plan' });
@@ -58,6 +58,7 @@ planRouter.put('/:id/checklist', (req, res) => {
     missingQuantity: Math.max(0, i.neededQuantity - i.ownedQuantity),
   }));
   plan.updatedAt = new Date().toISOString();
+  db.savePlan(plan);
 
   res.json(plan);
 });

@@ -80,7 +80,7 @@ listingRouter.post('/', (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  db.listings.unshift(newListing);
+  db.saveListing(newListing);
   res.status(201).json(newListing);
 });
 
@@ -92,6 +92,7 @@ listingRouter.patch('/:id', (req, res) => {
   }
 
   Object.assign(listing, req.body, { updatedAt: new Date().toISOString() });
+  db.saveListing(listing);
   res.json(listing);
 });
 
@@ -104,6 +105,7 @@ listingRouter.patch('/:id/status', (req, res) => {
 
   listing.status = req.body.status;
   listing.updatedAt = new Date().toISOString();
+  db.saveListing(listing);
   res.json(listing);
 });
 
@@ -123,6 +125,7 @@ listingRouter.post('/:id/report', (req, res) => {
   } else {
     listing.moderationStatus = 'reported';
   }
+  db.saveListing(listing);
 
   res.json({
     success: true,
