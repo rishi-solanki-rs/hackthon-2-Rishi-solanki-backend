@@ -62,7 +62,7 @@ Clarifications: ${JSON.stringify(clarifications || {})}
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-flash-lite-latest',
       contents: prompt,
       config: {
         abortSignal: controller.signal,
