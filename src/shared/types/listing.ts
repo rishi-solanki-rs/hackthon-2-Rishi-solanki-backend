@@ -27,11 +27,13 @@ export interface Listing {
   status: ListingStatus;
   moderationStatus: ModerationStatus;
   reportsCount: number;
+  reportedBy?: string[]; // Distinct reporter user ids; 3 distinct reports auto-hide the listing
   pickupNote?: string;
   comfortRules?: ComfortRules;
   photos: string[];
   ownerDisplayName?: string;
   ownerTower?: string;
+  isSample?: boolean; // Seeded demo record; UI must show a SAMPLE badge
   createdAt: string;
   updatedAt: string;
 }

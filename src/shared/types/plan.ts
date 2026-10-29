@@ -13,6 +13,16 @@ export interface PlanChecklistItem {
   source: 'template' | 'ai_suggested' | 'user_added';
 }
 
+export type TaskRiskFlag = 'wall_load' | 'electrical' | 'gas';
+
+export interface TaskSafetyGate {
+  flags: TaskRiskFlag[];
+  title: string;
+  message: string;
+  // true: every tool row is suppressed (electrical/gas); false: only DIY fastening rows (wall load)
+  suppressAllTools: boolean;
+}
+
 export interface Plan {
   id: string;
   userId: string;
@@ -20,6 +30,8 @@ export interface Plan {
   interpretedCategory: string;
   clarificationAnswers?: Record<string, string>;
   items: PlanChecklistItem[];
+  safetyGate?: TaskSafetyGate;
+  aiSource?: 'gemini' | 'template';
   status: 'draft' | 'active' | 'completed';
   createdAt: string;
   updatedAt: string;
@@ -50,10 +62,13 @@ export interface RankedOption {
   explanation: string;
   shopAddress?: string;
   shopPhone?: string;
+  isSample?: boolean;
 }
 
 export interface PlanOptionsMatrix {
   planId: string;
+  safetyGate?: TaskSafetyGate;
+  suppressedItemNames?: string[];
   items: Array<{
     itemKey: string;
     itemName: string;

@@ -12,6 +12,7 @@ export * from './engines/allocationEngine';
 export * from './engines/rankingEngine';
 export * from './engines/safetyEngine';
 export * from './engines/repairEngine';
+export * from './engines/planEngine';
 
 // Seed Fixtures
 export * from './seeds';

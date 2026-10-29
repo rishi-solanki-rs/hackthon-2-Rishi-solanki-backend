@@ -4,7 +4,11 @@ import path from 'path';
 export default defineConfig({
   test: {
     environment: 'node',
-    globals: true,
+    // Keep the suite deterministic and offline: never call the live Gemini API from tests
+    env: {
+      GEMINI_ENABLED: 'false',
+      MONGODB_URI: '',
+    },
   },
   resolve: {
     alias: {

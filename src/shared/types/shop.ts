@@ -14,5 +14,6 @@ export interface ExternalShop {
   distanceKm: number;
   phone: string;
   items: ShopItem[];
+  isSample?: boolean; // Seeded demo shop and prices; UI must show a SAMPLE badge
 }
 

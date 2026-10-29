@@ -19,10 +19,8 @@ import {
   SEED_SHOPS,
   SEED_PLANS,
   SEED_REQUESTS,
-  rankOptionsForItem,
-  evaluateItemSafety,
-  canAcceptRequest,
-  findCompetingRequestsToDecline,
+  SEED_LISTING_IDS,
+  SEED_SHOP_IDS,
 } from '@sidekit/shared';
 import {
   isMongoConnected,
@@ -32,7 +30,9 @@ import {
   PlanModel,
   ShopModel,
   NotificationModel,
+  DemandModel,
 } from '../db/mongo';
+import { DemandEntry } from '@sidekit/shared';
 
 class ServerDataStore {
   public users: User[] = [];
@@ -41,6 +41,7 @@ class ServerDataStore {
   public plans: Plan[] = [];
   public shops: ExternalShop[] = [];
   public notifications: AppNotification[] = [];
+  public demand: DemandEntry[] = [];
 
   constructor() {
     this.resetToDefaults();
@@ -52,6 +53,7 @@ class ServerDataStore {
     this.requests = JSON.parse(JSON.stringify(SEED_REQUESTS));
     this.plans = JSON.parse(JSON.stringify(SEED_PLANS));
     this.shops = JSON.parse(JSON.stringify(SEED_SHOPS));
+    this.demand = [];
     this.notifications = [
       {
         id: 'notif_welcome',
@@ -82,6 +84,7 @@ class ServerDataStore {
         PlanModel.deleteMany({}),
         ShopModel.deleteMany({}),
         NotificationModel.deleteMany({}),
+        DemandModel.deleteMany({}),
       ]);
       await Promise.all([
         UserModel.insertMany(this.users),
@@ -100,21 +103,34 @@ class ServerDataStore {
   public async syncFromMongo(): Promise<void> {
     if (!isMongoConnected()) return;
     try {
-      const [u, l, r, p, s, n] = await Promise.all([
-        UserModel.find().lean(),
-        ListingModel.find().lean(),
-        RequestModel.find().lean(),
-        PlanModel.find().lean(),
-        ShopModel.find().lean(),
-        NotificationModel.find().lean(),
+      const projection = '-_id -__v';
+      const [u, l, r, p, s, n, d] = await Promise.all([
+        UserModel.find().select(projection).lean(),
+        ListingModel.find().select(projection).lean(),
+        RequestModel.find().select(projection).lean(),
+        PlanModel.find().select(projection).lean(),
+        ShopModel.find().select(projection).lean(),
+        NotificationModel.find().select(projection).lean(),
+        DemandModel.find().select(projection).lean(),
       ]);
 
       if (u.length > 0) this.users = u as unknown as User[];
-      if (l.length > 0) this.listings = l as unknown as Listing[];
+      if (l.length > 0) {
+        this.listings = (l as unknown as Listing[]).map((x) => ({
+          ...x,
+          isSample: x.isSample ?? SEED_LISTING_IDS.has(x.id),
+        }));
+      }
       if (r.length > 0) this.requests = r as unknown as Request[];
       if (p.length > 0) this.plans = p as unknown as Plan[];
-      if (s.length > 0) this.shops = s as unknown as ExternalShop[];
+      if (s.length > 0) {
+        this.shops = (s as unknown as ExternalShop[]).map((x) => ({
+          ...x,
+          isSample: x.isSample ?? SEED_SHOP_IDS.has(x.id),
+        }));
+      }
       if (n.length > 0) this.notifications = n as unknown as AppNotification[];
+      this.demand = d as unknown as DemandEntry[];
 
       console.log(`Loaded from MongoDB Atlas: ${this.users.length} users, ${this.listings.length} listings, ${this.requests.length} requests, ${this.plans.length} plans.`);
     } catch (e: any) {
@@ -136,6 +152,15 @@ class ServerDataStore {
     if (isMongoConnected()) {
       UserModel.updateOne({ id: user.id }, user, { upsert: true }).catch((e) =>
         console.error('Mongo User update error:', e.message)
+      );
+    }
+  }
+
+  public deleteUser(userId: string): void {
+    this.users = this.users.filter((u) => u.id !== userId);
+    if (isMongoConnected()) {
+      UserModel.deleteOne({ id: userId }).catch((e) =>
+        console.error('Mongo User delete error:', e.message)
       );
     }
   }
@@ -199,6 +224,31 @@ class ServerDataStore {
     if (isMongoConnected()) {
       NotificationModel.create(notif).catch((e) =>
         console.error('Mongo Notification create error:', e.message)
+      );
+    }
+  }
+
+  /** Returns false when this user already registered interest in the item. */
+  public addDemand(entry: DemandEntry): boolean {
+    if (this.demand.some((d) => d.userId === entry.userId && d.itemKey === entry.itemKey)) {
+      return false;
+    }
+    this.demand.push(entry);
+    if (isMongoConnected()) {
+      DemandModel.create(entry).catch((e) =>
+        console.error('Mongo Demand create error:', e.message)
+      );
+    }
+    return true;
+  }
+
+  public markNotificationRead(notificationId: string): void {
+    const target = this.notifications.find((n) => n.id === notificationId);
+    if (!target) return;
+    target.read = true;
+    if (isMongoConnected()) {
+      NotificationModel.updateOne({ id: notificationId }, { read: true }).catch((e) =>
+        console.error('Mongo Notification update error:', e.message)
       );
     }
   }

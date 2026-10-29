@@ -1,6 +1,6 @@
 import { ExternalShop } from '../types/shop';
 
-export const SEED_SHOPS: ExternalShop[] = [
+const RAW_SEED_SHOPS: ExternalShop[] = [
   {
     id: 'shop_tools_new',
     name: 'National Hardware & Tool Mart',
@@ -110,4 +110,6 @@ export const SEED_SHOPS: ExternalShop[] = [
     ],
   },
 ];
+
+export const SEED_SHOPS: ExternalShop[] = RAW_SEED_SHOPS.map((s) => ({ ...s, isSample: true }));
 

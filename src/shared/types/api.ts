@@ -55,12 +55,29 @@ export interface JoinSocietyInput {
   flat: string;
 }
 
+export interface DemandEntry {
+  id: string;
+  userId: string;
+  itemKey: string;
+  itemName: string;
+  createdAt: string;
+}
+
+export interface MostWantedItem {
+  itemKey: string;
+  itemName: string;
+  count: number;
+  isSample: boolean; // Includes seeded baseline demand
+}
+
 export interface SocietyImpactStats {
   totalSavingsInr: number;
   co2AvoidedKg: number;
   totalItemsShared: number;
   activeHouseholds: number;
   topSharedCategories: Array<{ category: string; count: number }>;
+  mostWanted: MostWantedItem[];
+  includesSampleData: boolean;
 }
 
 export interface AdminQueueData {

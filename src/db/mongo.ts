@@ -6,6 +6,7 @@ import {
   Plan,
   ExternalShop,
   AppNotification,
+  DemandEntry,
   SEED_USERS,
   SEED_LISTINGS,
   SEED_SHOPS,
@@ -59,6 +60,8 @@ const ListingSchema = new Schema<Listing>(
     photos: [{ type: String }],
     ownerDisplayName: { type: String },
     ownerTower: { type: String },
+    isSample: { type: Boolean, default: false },
+    reportedBy: [{ type: String }],
     createdAt: { type: String, required: true },
     updatedAt: { type: String, required: true },
   },
@@ -112,6 +115,8 @@ const PlanSchema = new Schema<Plan>(
     interpretedCategory: { type: String, required: true },
     clarificationAnswers: { type: Schema.Types.Mixed },
     items: [{ type: Schema.Types.Mixed }],
+    safetyGate: { type: Schema.Types.Mixed },
+    aiSource: { type: String },
     status: { type: String, required: true },
     createdAt: { type: String, required: true },
     updatedAt: { type: String, required: true },
@@ -129,6 +134,7 @@ const ShopSchema = new Schema<ExternalShop>(
     distanceKm: { type: Number, required: true },
     phone: { type: String, required: true },
     items: [{ type: Schema.Types.Mixed }],
+    isSample: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -148,7 +154,17 @@ const NotificationSchema = new Schema<AppNotification>(
   { timestamps: true }
 );
 
+// 7. Demand Schema ("Notify me when available")
+const DemandSchema = new Schema<DemandEntry>({
+  id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true },
+  itemKey: { type: String, required: true },
+  itemName: { type: String, required: true },
+  createdAt: { type: String, required: true },
+});
+
 export const UserModel = mongoose.model<User>('User', UserSchema);
+export const DemandModel = mongoose.model<DemandEntry>('Demand', DemandSchema);
 export const ListingModel = mongoose.model<Listing>('Listing', ListingSchema);
 export const RequestModel = mongoose.model<Request>('Request', RequestSchema);
 export const PlanModel = mongoose.model<Plan>('Plan', PlanSchema);

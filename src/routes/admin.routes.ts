@@ -3,6 +3,16 @@ import { db } from '../store/dataStore';
 
 export const adminRouter = Router();
 
+// Middleware: require admin role for all admin routes
+adminRouter.use((req, res, next) => {
+  const userId = (req.headers['x-demo-user-id'] as string) || '';
+  const user = db.getUser(userId);
+  if (!user || user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required.' });
+  }
+  next();
+});
+
 // GET /api/admin/queue
 adminRouter.get('/queue', (req, res) => {
   const reported = db.listings.filter((l) => l.moderationStatus === 'reported');
@@ -27,12 +37,17 @@ adminRouter.post('/listings/:id/:action', (req, res) => {
   if (action === 'approve') {
     listing.moderationStatus = 'approved';
     listing.reportsCount = 0;
+    listing.reportedBy = [];
     listing.status = 'active';
   } else if (action === 'remove') {
     listing.moderationStatus = 'hidden_by_admin';
     listing.status = 'closed';
+  } else {
+    return res.status(400).json({ message: "Action must be 'approve' or 'remove'." });
   }
 
+  listing.updatedAt = new Date().toISOString();
+  db.saveListing(listing);
   res.json({ success: true });
 });
 

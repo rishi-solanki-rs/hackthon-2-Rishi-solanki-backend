@@ -1,6 +1,6 @@
 import { Listing } from '../types/listing';
 
-export const SEED_LISTINGS: Listing[] = [
+const RAW_SEED_LISTINGS: Listing[] = [
   {
     id: 'lst_drill_free',
     ownerId: 'usr_rishi',
@@ -649,4 +649,6 @@ export const SEED_LISTINGS: Listing[] = [
     updatedAt: '2026-02-15T15:00:00.000Z',
   },
 ];
+
+export const SEED_LISTINGS: Listing[] = RAW_SEED_LISTINGS.map((l) => ({ ...l, isSample: true }));
 

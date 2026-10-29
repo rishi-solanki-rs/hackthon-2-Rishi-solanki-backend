@@ -71,6 +71,7 @@ export function rankOptionsForItem(
 
     const isSameTower = requesterTower && l.ownerTower ? requesterTower === l.ownerTower : false;
     const condScore = getConditionScore(l.condition);
+    const isSample = l.isSample === true;
 
     // Case 1: Lend mode -> Free borrow (Tier 1)
     if (l.mode === 'lend') {
@@ -92,6 +93,7 @@ export function rankOptionsForItem(
         isSameTower,
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
+        isSample,
         explanation: 'Free community borrow from your society neighbours',
       });
       continue;
@@ -117,6 +119,7 @@ export function rankOptionsForItem(
         isSameTower,
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
+        isSample,
         warningNote: 'Price not available (ask owner)',
         explanation: 'Owner has not specified a rate. Coordinate directly after booking request.',
       });
@@ -144,6 +147,7 @@ export function rankOptionsForItem(
         isSameTower,
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
+        isSample,
         explanation: `Rent from neighbour at ₹${l.price}/day for ${durationDays} day(s)`,
       });
       continue;
@@ -172,6 +176,7 @@ export function rankOptionsForItem(
         isSameTower,
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
+        isSample,
         warningNote: isDemoted ? 'High second-hand price vs new (exceeds 70% of brand-new retail price)' : undefined,
         explanation: isDemoted
           ? 'Pre-owned listing priced near brand new retail price'
@@ -202,6 +207,7 @@ export function rankOptionsForItem(
       isSameTower: false,
       availableQuantity: 99,
       totalQuantity: 99,
+      isSample: referenceShop.isSample === true,
       explanation: `Buy brand new from verified neighbourhood store: ${referenceShop.name} (${referenceShop.address})`,
       shopAddress: referenceShop.address,
       shopPhone: referenceShop.phone,
