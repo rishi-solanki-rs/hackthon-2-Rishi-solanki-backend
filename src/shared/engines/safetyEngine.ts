@@ -1,5 +1,6 @@
 import { SafetyClass } from '../types/plan';
 import { RequestStatus } from '../types/request';
+import { matchCatalogItem } from '../catalog/catalog';
 
 // Prohibited terms (Class 1 - Hard Block)
 const PROHIBITED_KEYWORDS = [
@@ -74,7 +75,20 @@ export function evaluateItemSafety(itemNameOrQuery: string): {
     }
   }
 
-  // 2. Consumable Check
+  // 2. Consumable Check — curated catalog first (so "screwdriver" or "measuring tape" are not
+  // mistaken for screws or tape), keywords only for items outside the catalog
+  const catalogItem = matchCatalogItem(itemNameOrQuery);
+  if (catalogItem && !catalogItem.consumable) {
+    return checkCaution(normalized);
+  }
+  if (catalogItem?.consumable) {
+    return {
+      safetyClass: 'consumable',
+      isBlocked: false,
+      isConsumable: true,
+      warning: `Consumable item: "${itemNameOrQuery}" is consumed during use. It can only be purchased (new/used) or kept, not borrowed or rented.`,
+    };
+  }
   for (const keyword of CONSUMABLE_KEYWORDS) {
     if (normalized.includes(keyword)) {
       return {
@@ -86,7 +100,11 @@ export function evaluateItemSafety(itemNameOrQuery: string): {
     }
   }
 
-  // 3. Caution / Specialized Tool Check
+  return checkCaution(normalized);
+}
+
+// 3. Caution / Specialized Tool Check
+function checkCaution(normalized: string): { safetyClass: SafetyClass; isBlocked: boolean; isConsumable: boolean; warning?: string } {
   for (const keyword of CAUTION_KEYWORDS) {
     if (normalized.includes(keyword)) {
       return {

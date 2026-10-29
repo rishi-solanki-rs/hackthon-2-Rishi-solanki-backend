@@ -203,34 +203,41 @@ export async function initMongoDB(): Promise<boolean> {
 
 async function seedCollectionsIfEmpty() {
   try {
-    const userCount = await UserModel.countDocuments();
-    if (userCount === 0) {
-      console.log('Seeding initial Users to MongoDB Atlas...');
-      await UserModel.insertMany(SEED_USERS);
+    // Sync any seed records that don't yet exist in MongoDB Atlas
+    console.log('Verifying and synchronizing seed catalog with MongoDB Atlas...');
+    const existingUserIds = new Set((await UserModel.find({}, { id: 1 }).lean()).map((u) => u.id));
+    const missingUsers = SEED_USERS.filter((u) => !existingUserIds.has(u.id));
+    if (missingUsers.length > 0) {
+      console.log(`Adding ${missingUsers.length} new seed users to MongoDB Atlas...`);
+      await UserModel.insertMany(missingUsers);
     }
 
-    const listingCount = await ListingModel.countDocuments();
-    if (listingCount === 0) {
-      console.log('Seeding initial Listings to MongoDB Atlas...');
-      await ListingModel.insertMany(SEED_LISTINGS);
+    const existingListingIds = new Set((await ListingModel.find({}, { id: 1 }).lean()).map((l) => l.id));
+    const missingListings = SEED_LISTINGS.filter((l) => !existingListingIds.has(l.id));
+    if (missingListings.length > 0) {
+      console.log(`Adding ${missingListings.length} new seed listings to MongoDB Atlas...`);
+      await ListingModel.insertMany(missingListings);
     }
 
-    const shopCount = await ShopModel.countDocuments();
-    if (shopCount === 0) {
-      console.log('Seeding initial Shops to MongoDB Atlas...');
-      await ShopModel.insertMany(SEED_SHOPS);
+    const existingShopIds = new Set((await ShopModel.find({}, { id: 1 }).lean()).map((s) => s.id));
+    const missingShops = SEED_SHOPS.filter((s) => !existingShopIds.has(s.id));
+    if (missingShops.length > 0) {
+      console.log(`Adding ${missingShops.length} new seed shops to MongoDB Atlas...`);
+      await ShopModel.insertMany(missingShops);
     }
 
-    const planCount = await PlanModel.countDocuments();
-    if (planCount === 0) {
-      console.log('Seeding initial Plans to MongoDB Atlas...');
-      await PlanModel.insertMany(SEED_PLANS);
+    const existingPlanIds = new Set((await PlanModel.find({}, { id: 1 }).lean()).map((p) => p.id));
+    const missingPlans = SEED_PLANS.filter((p) => !existingPlanIds.has(p.id));
+    if (missingPlans.length > 0) {
+      console.log(`Adding ${missingPlans.length} new seed plans to MongoDB Atlas...`);
+      await PlanModel.insertMany(missingPlans);
     }
 
-    const requestCount = await RequestModel.countDocuments();
-    if (requestCount === 0) {
-      console.log('Seeding initial Requests to MongoDB Atlas...');
-      await RequestModel.insertMany(SEED_REQUESTS);
+    const existingReqIds = new Set((await RequestModel.find({}, { id: 1 }).lean()).map((r) => r.id));
+    const missingRequests = SEED_REQUESTS.filter((r) => !existingReqIds.has(r.id));
+    if (missingRequests.length > 0) {
+      console.log(`Adding ${missingRequests.length} new seed requests to MongoDB Atlas...`);
+      await RequestModel.insertMany(missingRequests);
     }
 
     const notifCount = await NotificationModel.countDocuments();

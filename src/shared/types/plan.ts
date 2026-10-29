@@ -11,6 +11,8 @@ export interface PlanChecklistItem {
   isConsumable: boolean;
   safetyClass: SafetyClass;
   source: 'template' | 'ai_suggested' | 'user_added';
+  category?: string;
+  imageUrl?: string; // Derived from the catalog (illustrative photo)
 }
 
 export type TaskRiskFlag = 'wall_load' | 'electrical' | 'gas';
@@ -39,13 +41,15 @@ export interface Plan {
 
 export type OptionTier = 'tier1_free' | 'tier2a_cost' | 'tier2b_demoted' | 'tier3_unknown';
 
+export type OptionMode = 'lend' | 'rent' | 'sell_used' | 'buy_new' | 'repair';
+
 export interface RankedOption {
   id: string;
   source: 'community' | 'external_shop';
   listingId?: string;
   shopId?: string;
   title: string;
-  mode: 'lend' | 'rent' | 'sell_used' | 'buy_new';
+  mode: OptionMode;
   tier: OptionTier;
   unitPrice: number | null;
   priceUnit: 'day' | 'item' | null;
@@ -63,21 +67,38 @@ export interface RankedOption {
   shopAddress?: string;
   shopPhone?: string;
   isSample?: boolean;
+  imageUrl?: string;
+}
+
+export type RecommendedMethod = 'borrow' | 'rent' | 'buy_used' | 'buy_new' | 'repair' | 'notify';
+
+/** Deterministic "best way to get this item" with a plain-language reason. */
+export interface ItemRecommendation {
+  method: RecommendedMethod;
+  optionId?: string;
+  reason: string;
+}
+
+export interface PlanOptionsItem {
+  itemKey: string;
+  itemName: string;
+  category?: string;
+  imageUrl?: string;
+  neededQuantity: number;
+  missingQuantity: number;
+  isConsumable: boolean;
+  requesterListsItem?: boolean; // The requester already lists this item themselves
+  rankedOptions: RankedOption[];
+  repairOptions?: RankedOption[]; // Informational: repair shops for items you may already own broken
+  recommendation?: ItemRecommendation;
 }
 
 export interface PlanOptionsMatrix {
   planId: string;
   safetyGate?: TaskSafetyGate;
   suppressedItemNames?: string[];
-  items: Array<{
-    itemKey: string;
-    itemName: string;
-    neededQuantity: number;
-    missingQuantity: number;
-    isConsumable: boolean;
-    requesterListsItem?: boolean; // The requester already lists this item themselves
-    rankedOptions: RankedOption[];
-  }>;
+  durationDays?: number;
+  items: PlanOptionsItem[];
 }
 
 export interface RepairEvaluationInput {
@@ -100,4 +121,3 @@ export interface RepairEvaluationResult {
   batteryAction?: string;
   suggestedAlternativeListingId?: string; // e.g. ThinkPad T480
 }
-

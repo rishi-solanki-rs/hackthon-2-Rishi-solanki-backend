@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../store/dataStore';
-import { interpretTaskWithGemini } from '../services/aiService';
+import { interpretTaskWithGemini, suggestMoreWithGemini } from '../services/aiService';
 import {
   evaluateLaptopRepair,
   evaluateTaskSafetyGate,
@@ -114,6 +114,24 @@ planRouter.put('/:id/checklist', (req, res) => {
   db.savePlan(plan);
 
   res.json(plan);
+});
+
+// POST /api/plans/:id/suggest — more items for an existing plan ("Suggest more" / "Describe what else you need")
+planRouter.post('/:id/suggest', async (req, res) => {
+  const plan = db.getPlan(req.params.id);
+  const userId = (req.headers['x-demo-user-id'] as string) || 'usr_rishi';
+  if (!plan || plan.userId !== userId) {
+    return res.status(404).json({ message: 'Plan not found' });
+  }
+
+  const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim().slice(0, 300) : '';
+  try {
+    const result = await suggestMoreWithGemini(plan.taskDescription, prompt, plan.items, catalogItemKeys());
+    const gated = applySafetyGate(result.items, plan.safetyGate ?? null);
+    res.json({ items: gated, source: result.source });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || 'Could not suggest items' });
+  }
 });
 
 // GET /api/plans/:id/options

@@ -13,7 +13,7 @@ vi.mock('@google/genai', async (importOriginal) => {
 });
 
 import { config } from '../config';
-import { interpretTaskWithGemini, toChecklistItems } from '../services/aiService';
+import { interpretTaskWithGemini, toChecklistItems, suggestMoreWithGemini } from '../services/aiService';
 
 const original = { ...config };
 
@@ -43,8 +43,12 @@ describe('Gemini task interpretation', () => {
     const result = await interpretTaskWithGemini('Mount a shelf', {}, ['drill_machine']);
     expect(result.source).toBe('gemini');
     expect(result.category).toBe('diy');
-    expect(result.items.map((i) => i.itemKey)).toEqual(['drill_machine', 'wall_plugs']);
-    // Deterministic engine overrides the model's consumable flag
+    // AI keys are mapped onto the catalog; the list is topped up to at least 10 items from templates
+    expect(result.items.slice(0, 2).map((i) => i.itemKey)).toEqual(['drill_machine', 'screws_plugs']);
+    expect(result.items.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(result.items.map((i) => i.itemKey)).size).toBe(result.items.length);
+    expect(result.items.every((i) => i.imageUrl?.startsWith('/images/items/'))).toBe(true);
+    // Deterministic catalog/engine overrides the model's consumable flag
     expect(result.items[1].isConsumable).toBe(true);
     expect(result.items[1].safetyClass).toBe('consumable');
 
@@ -84,13 +88,30 @@ describe('Gemini task interpretation', () => {
   });
 
   it('drops prohibited items suggested by the model', () => {
-    const items = toChecklistItems({
-      category: 'general',
-      items: [
-        { itemKey: 'petrol_can', name: 'Petrol can', neededQuantity: 1, reason: 'Fuel', isConsumable: true },
-        { itemKey: 'step_ladder', name: 'Step Ladder', neededQuantity: 1, reason: 'Reach', isConsumable: false },
-      ],
-    });
+    const items = toChecklistItems([
+      { itemKey: 'petrol_can', name: 'Petrol can', neededQuantity: 1, reason: 'Fuel', isConsumable: true },
+      { itemKey: 'step_ladder', name: 'Step Ladder', neededQuantity: 1, reason: 'Reach', isConsumable: false },
+    ]);
     expect(items.map((i) => i.itemKey)).toEqual(['step_ladder']);
+  });
+
+  it('suggests additional items without repeating the plan, with a deterministic fallback', async () => {
+    const existing = [{ itemKey: 'drawing_paper', name: 'Drawing Paper' }, { itemKey: 'sketch_pencils', name: 'Sketching Pencils' }] as any[];
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({ items: [
+        { itemKey: 'glitter_pens', name: 'Glitter pens', neededQuantity: 1, reason: 'Sparkle', isConsumable: true },
+        { itemKey: 'drawing_paper', name: 'Drawing paper', neededQuantity: 5, reason: 'dup', isConsumable: true },
+      ] }),
+    });
+    const ai = await suggestMoreWithGemini('I want to create a drawing', 'glitter', existing);
+    expect(ai.source).toBe('gemini');
+    expect(ai.items.map((i) => i.itemKey)).toEqual(['glitter_pens']);
+
+    config.geminiEnabled = false;
+    const fallback = await suggestMoreWithGemini('I want to create a drawing', 'coloured paper and glitter pens', existing);
+    expect(fallback.source).toBe('template');
+    const keys = fallback.items.map((i) => i.itemKey);
+    expect(keys.slice(0, 2)).toEqual(['coloured_paper', 'glitter_pens']);
+    expect(keys).not.toContain('drawing_paper');
   });
 });

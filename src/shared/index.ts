@@ -15,6 +15,10 @@ export * from './engines/repairEngine';
 export * from './engines/planEngine';
 export * from './engines/profileEngine';
 
+// Item catalog and task templates
+export * from './catalog/catalog';
+export * from './templates/taskTemplates';
+
 // Seed Fixtures
 export * from './seeds';
 

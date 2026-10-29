@@ -1,6 +1,7 @@
 import { Listing, ListingCondition } from '../types/listing';
 import { ExternalShop, ShopItem } from '../types/shop';
 import { RankedOption, OptionTier } from '../types/plan';
+import { resolveItemImage } from '../catalog/catalog';
 
 export interface RankingContext {
   neededQuantity: number;
@@ -46,7 +47,7 @@ export function rankOptionsForItem(
   let referenceShopItem: ShopItem | undefined;
 
   for (const shop of externalShops) {
-    const item = shop.items.find((i) => i.itemKey === itemKey && i.inStock);
+    const item = shop.items.find((i) => i.itemKey === itemKey && i.inStock && i.service !== 'repair');
     if (item) {
       if (!referenceShopItem || item.priceNew < referenceShopItem.priceNew) {
         referenceShop = shop;
@@ -77,6 +78,7 @@ export function rankOptionsForItem(
     const isSameTower = requesterTower && l.ownerTower ? requesterTower === l.ownerTower : false;
     const condScore = getConditionScore(l.condition);
     const isSample = l.isSample === true;
+    const imageUrl = l.imageUrl || resolveItemImage(l.itemKey, l.title, l.category);
 
     // Case 1: Lend mode -> Free borrow (Tier 1)
     if (l.mode === 'lend') {
@@ -99,6 +101,7 @@ export function rankOptionsForItem(
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
         isSample,
+        imageUrl,
         explanation: 'Free community borrow from your society neighbours',
       });
       continue;
@@ -125,6 +128,7 @@ export function rankOptionsForItem(
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
         isSample,
+        imageUrl,
         warningNote: 'Price not available (ask owner)',
         explanation: 'Owner has not specified a rate. Coordinate directly after booking request.',
       });
@@ -153,6 +157,7 @@ export function rankOptionsForItem(
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
         isSample,
+        imageUrl,
         explanation: `Rent from neighbour at ₹${l.price}/day for ${durationDays} day(s)`,
       });
       continue;
@@ -182,6 +187,7 @@ export function rankOptionsForItem(
         availableQuantity: l.totalQuantity,
         totalQuantity: l.totalQuantity,
         isSample,
+        imageUrl,
         warningNote: isDemoted ? 'High second-hand price vs new (exceeds 70% of brand-new retail price)' : undefined,
         explanation: isDemoted
           ? 'Pre-owned listing priced near brand new retail price'
@@ -213,6 +219,7 @@ export function rankOptionsForItem(
       availableQuantity: 99,
       totalQuantity: 99,
       isSample: referenceShop.isSample === true,
+      imageUrl: resolveItemImage(itemKey, referenceShopItem.itemName),
       explanation: `Buy brand new from verified neighbourhood store: ${referenceShop.name} (${referenceShop.address})`,
       shopAddress: referenceShop.address,
       shopPhone: referenceShop.phone,
