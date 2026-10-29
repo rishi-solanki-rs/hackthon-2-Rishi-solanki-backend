@@ -98,7 +98,7 @@ requestRouter.post('/', (req, res) => {
   }
 
   const listing = db.getListing(data.listingId);
-  if (!listing || listing.moderationStatus === 'hidden_by_admin') {
+  if (!listing || ['hidden_by_admin', 'pending_review', 'rejected'].includes(listing.moderationStatus)) {
     return res.status(404).json({ message: 'Listing not found' });
   }
 

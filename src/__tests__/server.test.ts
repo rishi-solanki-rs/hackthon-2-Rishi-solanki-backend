@@ -86,6 +86,9 @@ describe('Sidekit Backend API Endpoints', () => {
         totalQuantity: 1,
       });
     const listingId = newListingRes.body.id;
+    expect(newListingRes.body.moderationStatus).toBe('pending_review');
+    const approveRes = await request(app).post(`/api/admin/listings/${listingId}/approve`).set('x-demo-user-id', 'usr_admin');
+    expect(approveRes.status).toBe(200);
 
     // 2. Request 1 by Rishi for Saturday 10:00 to 14:00
     const req1Res = await request(app)
@@ -407,6 +410,82 @@ describe('Plans: safety gate, options scoping and demand', () => {
     const impact = await request(app).get('/api/impact');
     expect(impact.body.includesSampleData).toBe(true);
     expect(Array.isArray(impact.body.mostWanted)).toBe(true);
+  });
+
+  it('member listings wait for admin approval and stay out of browse until approved', async () => {
+    const created = await request(app)
+      .post('/api/listings')
+      .set('x-demo-user-id', 'usr_priya')
+      .send({ title: 'Kids Easel', category: 'art', mode: 'lend', condition: 'good', totalQuantity: 1 });
+    expect(created.status).toBe(201);
+    expect(created.body.moderationStatus).toBe('pending_review');
+    const id = created.body.id;
+
+    const browse = await request(app).get('/api/listings').set('x-demo-user-id', 'usr_rishi');
+    expect(browse.body.some((l: any) => l.id === id)).toBe(false);
+    expect((await request(app).get(`/api/listings/${id}`).set('x-demo-user-id', 'usr_rishi')).status).toBe(404);
+    expect((await request(app).get(`/api/listings/${id}`).set('x-demo-user-id', 'usr_priya')).status).toBe(200);
+
+    const adminNotifs = await request(app).get('/api/notifications').set('x-demo-user-id', 'usr_admin');
+    expect(adminNotifs.body.some((n: any) => n.type === 'listing_review')).toBe(true);
+
+    const queue = await request(app).get('/api/admin/listings?moderation=pending_review').set('x-demo-user-id', 'usr_admin');
+    expect(queue.body.some((l: any) => l.id === id)).toBe(true);
+
+    expect((await request(app).post(`/api/admin/listings/${id}/reject`).set('x-demo-user-id', 'usr_admin').send({})).status).toBe(400);
+    const rejected = await request(app)
+      .post(`/api/admin/listings/${id}/reject`)
+      .set('x-demo-user-id', 'usr_admin')
+      .send({ reason: 'Please add the easel size.' });
+    expect(rejected.body.listing.moderationStatus).toBe('rejected');
+
+    const edited = await request(app)
+      .patch(`/api/listings/${id}`)
+      .set('x-demo-user-id', 'usr_priya')
+      .send({ description: 'A3 tabletop easel, 45 cm tall.' });
+    expect(edited.body.moderationStatus).toBe('pending_review');
+    expect(edited.body.rejectionReason).toBeUndefined();
+
+    await request(app).post(`/api/admin/listings/${id}/approve`).set('x-demo-user-id', 'usr_admin');
+    const after = await request(app).get('/api/listings').set('x-demo-user-id', 'usr_rishi');
+    expect(after.body.some((l: any) => l.id === id)).toBe(true);
+    const ownerNotifs = await request(app).get('/api/notifications').set('x-demo-user-id', 'usr_priya');
+    expect(ownerNotifs.body.map((n: any) => n.type)).toEqual(expect.arrayContaining(['listing_rejected', 'listing_approved']));
+  });
+
+  it('admin-created listings are approved immediately', async () => {
+    const created = await request(app)
+      .post('/api/listings')
+      .set('x-demo-user-id', 'usr_admin')
+      .send({ title: 'Clubhouse Folding Table', category: 'party', mode: 'lend', condition: 'good', totalQuantity: 2 });
+    expect(created.body.moderationStatus).toBe('approved');
+  });
+
+  it('seeded pending and rejected listings are hidden from browse and requests', async () => {
+    const browse = await request(app).get('/api/listings').set('x-demo-user-id', 'usr_rishi');
+    expect(browse.body.some((l: any) => l.moderationStatus === 'pending_review' || l.moderationStatus === 'rejected')).toBe(false);
+    const res = await request(app)
+      .post('/api/requests')
+      .set('x-demo-user-id', 'usr_rishi')
+      .send({ listingId: 'lst_pending_cricket_kit', kind: 'rent', requestedQuantity: 1, neededFrom: '2026-11-10', neededTo: '2026-11-10' });
+    expect(res.status).toBe(404);
+  });
+
+  it('admin console endpoints return masked, scoped data', async () => {
+    for (const path of ['overview', 'listings', 'users', 'requests', 'leaderboard', 'settings']) {
+      expect((await request(app).get(`/api/admin/${path}`).set('x-demo-user-id', 'usr_amit')).status).toBe(403);
+      expect((await request(app).get(`/api/admin/${path}`).set('x-demo-user-id', 'usr_admin')).status).toBe(200);
+    }
+    const users = await request(app).get('/api/admin/users').set('x-demo-user-id', 'usr_admin');
+    const rishi = users.body.find((u: any) => u.id === 'usr_rishi');
+    expect(rishi.phone).not.toBe('+91 98765 11001');
+    expect(rishi.email).toBeUndefined();
+    const requests = await request(app).get('/api/admin/requests').set('x-demo-user-id', 'usr_admin');
+    expect(requests.body.every((r: any) => !r.ownerPhone || r.ownerPhone.includes('•') || r.ownerPhone.includes('*'))).toBe(true);
+    const overview = await request(app).get('/api/admin/overview').set('x-demo-user-id', 'usr_admin');
+    expect(overview.body.counts.pendingApprovals).toBeGreaterThanOrEqual(3);
+    const settings = await request(app).get('/api/admin/settings').set('x-demo-user-id', 'usr_admin');
+    expect(JSON.stringify(settings.body)).not.toMatch(/AIza|mongodb/i);
   });
 });
 

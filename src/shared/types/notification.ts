@@ -7,6 +7,9 @@ export type NotificationType =
   | 'return_due'
   | 'listing_reported'
   | 'listing_hidden'
+  | 'listing_review'
+  | 'listing_approved'
+  | 'listing_rejected'
   | 'thank_you';
 
 export interface AppNotification {

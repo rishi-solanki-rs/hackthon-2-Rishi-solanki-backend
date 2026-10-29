@@ -112,8 +112,9 @@ describe('Plan options matrix', () => {
     expect(allOwners).not.toContain('usr_rishi');
     const cord = matrix.items.find((i) => i.itemKey === 'extension_cord')!;
     expect(cord.requesterListsItem).toBe(true);
-    // Rishi's only cord is excluded, but the hardware shop option remains
-    expect(cord.rankedOptions.every((o) => o.source === 'external_shop')).toBe(true);
+    // Rishi's own cord is excluded; neighbours' cords and the shop option remain
+    expect(cord.rankedOptions.some((o) => o.source === 'external_shop')).toBe(true);
+    expect(cord.rankedOptions.some((o) => o.listingId === 'lst_cord_amit')).toBe(true);
   });
 
   it('excludes gated rows and reports them as suppressed', () => {

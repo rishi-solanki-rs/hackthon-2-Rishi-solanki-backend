@@ -8,16 +8,18 @@ import {
   CreateListingInput,
   UpdateListingInput,
   evaluateItemSafety,
+  isPubliclyVisible,
+  LISTING_CATEGORIES,
+  AUTO_HIDE_REPORT_THRESHOLD,
+  initialModerationStatus,
 } from '@sidekit/shared';
 
 export const listingRouter = Router();
 
-const CATEGORIES: ListingCategory[] = ['cleaning', 'diy', 'gardening', 'electronics', 'kitchen', 'general'];
+const CATEGORIES: ListingCategory[] = LISTING_CATEGORIES;
 const MODES: ListingMode[] = ['lend', 'rent', 'sell_used'];
 const CONDITIONS: ListingCondition[] = ['like_new', 'good', 'fair', 'unknown'];
 const STATUSES: Listing['status'][] = ['active', 'paused', 'closed'];
-const AUTO_HIDE_REPORT_THRESHOLD = 3;
-
 function currentUserId(req: ExpressRequest): string {
   return (req.headers['x-demo-user-id'] as string) || 'usr_rishi';
 }
@@ -54,12 +56,10 @@ listingRouter.get('/', (req, res) => {
 
   let listings: Listing[];
   if (typeof ownerId === 'string' && ownerId) {
-    // Owners see all of their own listings (including closed and hidden) in My Listings
-    listings = db.listings.filter(
-      (l) => l.ownerId === ownerId && (ownerId === userId || (l.status !== 'closed' && l.moderationStatus !== 'hidden_by_admin'))
-    );
+    // Owners see all of their own listings (pending, rejected, closed, hidden) in My Listings
+    listings = db.listings.filter((l) => l.ownerId === ownerId && (ownerId === userId || isPubliclyVisible(l)));
   } else {
-    listings = db.listings.filter((l) => l.moderationStatus !== 'hidden_by_admin' && l.status !== 'closed');
+    listings = db.listings.filter(isPubliclyVisible);
   }
 
   if (query && typeof query === 'string') {
@@ -92,7 +92,8 @@ listingRouter.get('/', (req, res) => {
 listingRouter.get('/:id', (req, res) => {
   const listing = db.getListing(req.params.id);
   const userId = currentUserId(req);
-  if (!listing || (listing.moderationStatus === 'hidden_by_admin' && listing.ownerId !== userId && !isAdmin(userId))) {
+  const underModeration = listing && ['hidden_by_admin', 'pending_review', 'rejected'].includes(listing.moderationStatus);
+  if (!listing || (underModeration && listing.ownerId !== userId && !isAdmin(userId))) {
     return res.status(404).json({ message: 'Listing not found' });
   }
   res.json(listing);
@@ -135,6 +136,7 @@ listingRouter.post('/', (req, res) => {
     return res.status(400).json({ message: 'Quantity must be between 1 and 100.' });
   }
 
+  const ownerIsAdmin = user.role === 'admin';
   const newListing: Listing = {
     id: `lst_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     ownerId: userId,
@@ -148,7 +150,7 @@ listingRouter.post('/', (req, res) => {
     condition,
     totalQuantity: quantity,
     status: 'active',
-    moderationStatus: 'approved',
+    moderationStatus: initialModerationStatus(user.role),
     reportsCount: 0,
     reportedBy: [],
     pickupNote: str(data.pickupNote, 300),
@@ -162,6 +164,22 @@ listingRouter.post('/', (req, res) => {
   };
 
   db.saveListing(newListing);
+  if (!ownerIsAdmin) {
+    db.users
+      .filter((u) => u.role === 'admin')
+      .forEach((admin) =>
+        db.addNotification({
+          id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_review`,
+          userId: admin.id,
+          type: 'listing_review',
+          title: 'Listing awaiting approval',
+          message: `${user.displayName} listed "${newListing.title}". Review it before it goes public.`,
+          link: '/admin/approvals',
+          read: false,
+          createdAt: new Date().toISOString(),
+        })
+      );
+  }
   res.status(201).json(newListing);
 });
 
@@ -213,6 +231,10 @@ listingRouter.patch('/:id', (req, res) => {
   if (data.pickupNote !== undefined) updates.pickupNote = str(data.pickupNote, 300);
   if (data.comfortRules !== undefined && typeof data.comfortRules === 'object') updates.comfortRules = data.comfortRules;
   if (Array.isArray(data.photos)) updates.photos = data.photos.filter((p) => typeof p === 'string').slice(0, 5);
+  if (listing.moderationStatus === 'rejected') {
+    updates.moderationStatus = 'pending_review';
+    updates.rejectionReason = undefined;
+  }
 
   Object.assign(listing, updates, { updatedAt: new Date().toISOString() });
   db.saveListing(listing);
@@ -253,6 +275,9 @@ listingRouter.post('/:id/report', (req, res) => {
   }
 
   const userId = currentUserId(req);
+  if (!isPubliclyVisible(listing)) {
+    return res.status(400).json({ message: 'This listing is not public and cannot be reported.' });
+  }
   if (listing.ownerId === userId) {
     return res.status(400).json({ message: 'You cannot report your own listing.' });
   }
@@ -265,6 +290,8 @@ listingRouter.post('/:id/report', (req, res) => {
   listing.reportedBy = Array.from(reporters);
   // Seeded listings may carry reports from before reporter ids were tracked
   listing.reportsCount = Math.max((listing.reportsCount || 0) + 1, reporters.size);
+  const reason = str(req.body?.reason, 200);
+  if (reason) listing.reportReasons = [...(listing.reportReasons || []), reason];
 
   let hidden = false;
   if (listing.reportsCount >= AUTO_HIDE_REPORT_THRESHOLD) {

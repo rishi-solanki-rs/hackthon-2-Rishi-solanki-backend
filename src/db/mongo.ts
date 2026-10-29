@@ -35,7 +35,7 @@ const UserSchema = new Schema<User>(
     joinedAt: { type: String, required: true },
     thankYouNotes: [{ type: Schema.Types.Mixed }],
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
 // 2. Listing Schema
@@ -62,10 +62,14 @@ const ListingSchema = new Schema<Listing>(
     ownerTower: { type: String },
     isSample: { type: Boolean, default: false },
     reportedBy: [{ type: String }],
+    reportReasons: [{ type: String }],
+    rejectionReason: { type: String },
+    reviewedAt: { type: String },
+    imageUrl: { type: String },
     createdAt: { type: String, required: true },
     updatedAt: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
 // 3. Request Schema
@@ -103,7 +107,7 @@ const RequestSchema = new Schema<Request>(
     createdAt: { type: String, required: true },
     updatedAt: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
 // 4. Plan Schema
@@ -121,7 +125,7 @@ const PlanSchema = new Schema<Plan>(
     createdAt: { type: String, required: true },
     updatedAt: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
 // 5. External Shop Schema
@@ -136,7 +140,7 @@ const ShopSchema = new Schema<ExternalShop>(
     items: [{ type: Schema.Types.Mixed }],
     isSample: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
 // 6. Notification Schema
@@ -151,7 +155,7 @@ const NotificationSchema = new Schema<AppNotification>(
     read: { type: Boolean, default: false },
     createdAt: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
 // 7. Demand Schema ("Notify me when available")
@@ -226,18 +230,13 @@ async function seedCollectionsIfEmpty() {
       await ShopModel.insertMany(missingShops);
     }
 
-    const existingPlanIds = new Set((await PlanModel.find({}, { id: 1 }).lean()).map((p) => p.id));
-    const missingPlans = SEED_PLANS.filter((p) => !existingPlanIds.has(p.id));
-    if (missingPlans.length > 0) {
-      console.log(`Adding ${missingPlans.length} new seed plans to MongoDB Atlas...`);
-      await PlanModel.insertMany(missingPlans);
+    // Plans and requests carry live state (allocations, contact reveal), so they are only seeded
+    // into an empty database; use the admin reset to reload them.
+    if ((await PlanModel.countDocuments()) === 0) {
+      await PlanModel.insertMany(SEED_PLANS);
     }
-
-    const existingReqIds = new Set((await RequestModel.find({}, { id: 1 }).lean()).map((r) => r.id));
-    const missingRequests = SEED_REQUESTS.filter((r) => !existingReqIds.has(r.id));
-    if (missingRequests.length > 0) {
-      console.log(`Adding ${missingRequests.length} new seed requests to MongoDB Atlas...`);
-      await RequestModel.insertMany(missingRequests);
+    if ((await RequestModel.countDocuments()) === 0) {
+      await RequestModel.insertMany(SEED_REQUESTS);
     }
 
     const notifCount = await NotificationModel.countDocuments();

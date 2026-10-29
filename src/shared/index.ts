@@ -14,6 +14,7 @@ export * from './engines/safetyEngine';
 export * from './engines/repairEngine';
 export * from './engines/planEngine';
 export * from './engines/profileEngine';
+export * from './engines/adminEngine';
 
 // Item catalog and task templates
 export * from './catalog/catalog';

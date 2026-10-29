@@ -419,7 +419,7 @@ export function suggestMoreItems(task: string, prompt: string, excludeKeys: Set<
   const text = `${prompt} ${task}`.trim();
   for (const word of prompt.toLowerCase().split(/[,;\n]| and /).map((w) => w.trim()).filter(Boolean)) {
     const direct = matchCatalogItem(word) || searchCatalog(word, 1)[0];
-    if (direct) push(direct.itemKey, 1, `You asked for: ${word}`);
+    if (direct) push(direct.itemKey, 1, 'You asked for this.');
   }
   for (const tpl of rankTemplates(text)) {
     if (tpl.id === 'generic' && out.length > 0) break;

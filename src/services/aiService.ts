@@ -152,6 +152,7 @@ function buildSuggestPrompt(taskDescription: string, request: string, existingNa
 The resident already has this checklist for their task: ${JSON.stringify(existingNames)}.
 Suggest 5 to 12 ADDITIONAL items they may still need. Do not repeat anything already on the list.
 If the resident describes extra needs, include those first.
+Each reason is one short sentence (under 12 words) saying how the item helps the task. Never copy the resident's note as a reason.
 ${SHARED_RULES}
 
 Known catalog items (key (name)): ${catalogHint(catalogKeys)}.
@@ -286,7 +287,12 @@ export async function suggestMoreWithGemini(
       SUGGESTIONS_SCHEMA,
       GeneratedSuggestionsSchema
     );
-    const items = toChecklistItems(validated.items, Date.now(), exclude);
+    const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const note = plain(request);
+    // Gemini sometimes echoes (part of) the resident's note as the reason
+    const items = toChecklistItems(validated.items, Date.now(), exclude).map((i) =>
+      note && plain(i.reason) && note.includes(plain(i.reason)) ? { ...i, reason: 'You asked for this.' } : i
+    );
     if (items.length === 0) return fallback();
     return { items, source: 'gemini' };
   } catch (err) {

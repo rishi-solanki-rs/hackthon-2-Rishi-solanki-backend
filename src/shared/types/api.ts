@@ -82,6 +82,7 @@ export interface SocietyImpactStats {
 }
 
 export interface AdminQueueData {
+  pendingListings: Listing[];
   reportedListings: Listing[];
   hiddenListings: Listing[];
   totalReportsCount: number;

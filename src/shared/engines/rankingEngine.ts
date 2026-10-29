@@ -220,7 +220,7 @@ export function rankOptionsForItem(
       totalQuantity: 99,
       isSample: referenceShop.isSample === true,
       imageUrl: resolveItemImage(itemKey, referenceShopItem.itemName),
-      explanation: `Buy brand new from verified neighbourhood store: ${referenceShop.name} (${referenceShop.address})`,
+      explanation: `Buy new from a nearby shop: ${referenceShop.name} (${referenceShop.address})`,
       shopAddress: referenceShop.address,
       shopPhone: referenceShop.phone,
     };

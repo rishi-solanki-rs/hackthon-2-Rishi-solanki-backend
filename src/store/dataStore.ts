@@ -150,7 +150,7 @@ class ServerDataStore {
       this.users.push(user);
     }
     if (isMongoConnected()) {
-      UserModel.updateOne({ id: user.id }, user, { upsert: true }).catch((e) =>
+      UserModel.replaceOne({ id: user.id }, user, { upsert: true }).catch((e) =>
         console.error('Mongo User update error:', e.message)
       );
     }
@@ -177,7 +177,7 @@ class ServerDataStore {
       this.listings.push(listing);
     }
     if (isMongoConnected()) {
-      ListingModel.updateOne({ id: listing.id }, listing, { upsert: true }).catch((e) =>
+      ListingModel.replaceOne({ id: listing.id }, listing, { upsert: true }).catch((e) =>
         console.error('Mongo Listing update error:', e.message)
       );
     }
@@ -195,7 +195,7 @@ class ServerDataStore {
       this.requests.push(req);
     }
     if (isMongoConnected()) {
-      RequestModel.updateOne({ id: req.id }, req, { upsert: true }).catch((e) =>
+      RequestModel.replaceOne({ id: req.id }, req, { upsert: true }).catch((e) =>
         console.error('Mongo Request update error:', e.message)
       );
     }
@@ -213,7 +213,7 @@ class ServerDataStore {
       this.plans.push(plan);
     }
     if (isMongoConnected()) {
-      PlanModel.updateOne({ id: plan.id }, plan, { upsert: true }).catch((e) =>
+      PlanModel.replaceOne({ id: plan.id }, plan, { upsert: true }).catch((e) =>
         console.error('Mongo Plan update error:', e.message)
       );
     }

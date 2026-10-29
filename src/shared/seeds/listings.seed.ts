@@ -1,4 +1,6 @@
 import { Listing } from '../types/listing';
+import { SEED_USERS } from './users.seed';
+import { EXTRA_SEED_LISTINGS } from './listings.extra.seed';
 
 const RAW_SEED_LISTINGS: Listing[] = [
   {
@@ -642,6 +644,7 @@ const RAW_SEED_LISTINGS: Listing[] = [
     status: 'active',
     moderationStatus: 'reported',
     reportsCount: 2, // 2 reports already; 3rd report will trigger auto-hide!
+    reportReasons: ['Wire looks damaged — unsafe to use', 'Listing description says it is broken'],
     photos: ['https://images.unsplash.com/photo-1504148455328-c376907d081c?w=500'],
     ownerDisplayName: 'Vikram R.',
     ownerTower: 'Tower A',
@@ -2269,5 +2272,15 @@ const RAW_SEED_LISTINGS: Listing[] = [
   },
 ];
 
-export const SEED_LISTINGS: Listing[] = RAW_SEED_LISTINGS.map((l) => ({ ...l, isSample: true }));
+// Seeded listings have no resident photos; the UI shows the catalog's illustrative photo instead.
+export const SEED_LISTINGS: Listing[] = [...RAW_SEED_LISTINGS, ...EXTRA_SEED_LISTINGS].map((l) => {
+  const owner = SEED_USERS.find((u) => u.id === l.ownerId);
+  return {
+    ...l,
+    isSample: true,
+    photos: [],
+    ownerDisplayName: owner?.displayName ?? l.ownerDisplayName,
+    ownerTower: owner?.tower ?? l.ownerTower,
+  };
+});
 
