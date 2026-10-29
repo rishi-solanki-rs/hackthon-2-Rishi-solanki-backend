@@ -16,6 +16,9 @@ describe('Direct item requests', () => {
     expect(parseDirectItemRequest('need to clean the balcony')).toBeNull();
     expect(parseDirectItemRequest('drawing with my kids this weekend')).toBeNull();
     expect(parseDirectItemRequest('washing machine')).toBeNull();
+    expect(parseDirectItemRequest('meko chaddi dhoi he')).toBeNull();
+    expect(parseDirectItemRequest('kapde dhone hai')).toBeNull();
+    expect(buildTemplateChecklist('meko chaddi dhoi he').items.length).toBeGreaterThanOrEqual(10);
   });
 
   it('fallback checklist for a named item contains only that item', () => {

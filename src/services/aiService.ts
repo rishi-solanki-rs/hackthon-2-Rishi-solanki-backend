@@ -157,7 +157,9 @@ STEP 1 — decide requestType:
 - "item": the resident names a specific thing they want to get ("need washing machine", "RO chahiye", "looking for a drill",
   "ladder for 2 days", "PS2 chahiye"). They want THAT item, not a project.
 - "task": the resident describes a job or activity ("mount a TV", "clean the balcony", "drawing with my kids",
-  "birthday party", "install an RO purifier", "fix my washing machine").
+  "birthday party", "install an RO purifier", "fix my washing machine", "kapde dhone hai", "meko chaddi dhoi he").
+  Hindi/Hinglish verbs like dhona/dhoi, karna, banana, saaf karna, khelna, lagana mean a task.
+- If you are not sure, choose "task".
 
 STEP 2 — build the list:
 - If "item": the FIRST item must be exactly the thing they asked for (generic name, quantity they mentioned, else 1).
@@ -172,6 +174,7 @@ Examples:
 - "meko RO chahiye" -> item: [RO Water Purifier]
 - "PS2 khelna hai" -> item: [PS2 Console, Game Controller, PS2 Game Discs]
 - "install a washing machine in the utility area" -> task: inlet hose, drain hose extension, spirit level, adjustable wrench, teflon tape, ...
+- "meko chaddi dhoi he" (wash underwear by hand) -> task: bucket, mug, detergent, scrub brush, clothes clips, drying rack, ...
 
 Always: never suggest weapons, fuel, fireworks, drugs or hazardous chemicals; no prices, shops or availability.
 Keep names short and generic (no brands). Reasons are one short sentence.
@@ -289,11 +292,12 @@ export async function interpretTaskWithGemini(
 
     // A named item ("need washing machine") gets that item and a few must-have accessories, never a padded project list
     const direct = parseDirectItemRequest(taskDescription);
-    const isItemRequest = validated.requestType === 'item' || Boolean(direct);
+    // Gemini decides; item mode only for short requests so a described job is never cut down to one item
+    const isItemRequest = validated.requestType === 'item' && taskDescription.trim().split(/\s+/).length <= 6;
     if (isItemRequest) {
       items = keepRequestedItemFirst(items, direct).slice(0, MAX_ITEM_REQUEST_ITEMS);
     } else if (items.length < MIN_CHECKLIST_ITEMS) {
-      items.push(...templateTopUp(taskDescription, new Set(items.map((i) => i.itemKey)), MIN_CHECKLIST_ITEMS - items.length));
+      items.push(...templateTopUp(taskDescription, new Set(items.map((i) => i.itemKey)), MIN_CHECKLIST_ITEMS - items.length, true));
     }
 
     const category = (isItemRequest && items[0]?.category) || validated.category.toLowerCase();

@@ -367,7 +367,7 @@ const ITEM_REQUEST_LEAD = /^(?:i\s+)?(?:need|want|looking\s+for|require|search(?
 const HINDI_NEED = /\s*(?:chahiye|chaiye|chahie|chahiya|chaahiye|chiye|chahye)(?:\s+(?:hai|he|tha|thi))?\s*$/i;
 const HINDI_LEAD = /^(?:mujhe|meko|muje|mereko|mere\s+ko|hume|humko)\s+(?:ek\s+)?/i;
 const TASK_WORDS =
-  /\b(install|installation|mount|mounting|fix|repair|clean|cleaning|paint|painting|build|make|create|do|organi[sz]e|plan|party|shift|shifting|move|moving|assemble|decorate|cook|cooking|bake|baking|celebrate|trip|camping|gardening|drawing|lagana|lagwana|banana|saaf|theek|khelna|karna)\b/i;
+  /\b(install|installation|mount|mounting|fix|repair|clean|cleaning|paint|painting|build|make|create|do|wash|dry|iron|dhona|dhoi|dhoni|dhone|dhulai|sukhana|pakana|sajana|organi[sz]e|plan|party|shift|shifting|move|moving|assemble|decorate|cook|cooking|bake|baking|celebrate|trip|camping|gardening|drawing|lagana|lagwana|banana|saaf|theek|khelna|karna)\b/i;
 
 const displayName = (s: string) =>
   s
@@ -387,9 +387,13 @@ export interface DirectItemRequest {
 export function parseDirectItemRequest(task: string): DirectItemRequest | null {
   const raw = task.trim().replace(/[.!?]+$/, '');
   if (!raw || raw.split(/\s+/).length > 7 || TASK_WORDS.test(raw)) return null;
-  const hasLead = ITEM_REQUEST_LEAD.test(raw) || HINDI_LEAD.test(raw);
+  // Hinglish verb phrases ("dhoi he", "karna hai", "khelna hai") describe an action, not an item
+  if (/\b\w+(?:na|ni|ne|i)\s+(?:he|hai|h)\b/i.test(raw)) return null;
+  const withoutPronoun = raw.replace(HINDI_LEAD, '');
+  // "mujhe/meko" alone is not a request; it needs need/want/chahiye
+  const hasLead = ITEM_REQUEST_LEAD.test(withoutPronoun);
   const hasHindiNeed = HINDI_NEED.test(raw);
-  const stripped = raw.replace(HINDI_LEAD, '').replace(ITEM_REQUEST_LEAD, '');
+  const stripped = withoutPronoun.replace(ITEM_REQUEST_LEAD, '');
   // "want to create …" describes an action, not an item
   if (/^to\s/i.test(stripped)) return null;
   const name = stripped.replace(HINDI_NEED, '').replace(/^(?:a|an|the|ek)\s+/i, '').trim();
@@ -436,9 +440,10 @@ export function buildTemplateChecklist(task: string): { category: string; items:
 export const MIN_CHECKLIST_ITEMS = 10;
 
 /** Template items that are not already in the plan, best match first. */
-export function templateTopUp(task: string, excludeKeys: Set<string>, limit: number): PlanChecklistItem[] {
+export function templateTopUp(task: string, excludeKeys: Set<string>, limit: number, onlyMatching = false): PlanChecklistItem[] {
   const out: PlanChecklistItem[] = [];
-  const templates = [...rankTemplates(task), GENERIC];
+  // onlyMatching: pad an AI list only from the template that really fits the task, never the generic toolbox
+  const templates = onlyMatching ? rankTemplates(task).filter((t) => t.id !== GENERIC.id).slice(0, 1) : [...rankTemplates(task), GENERIC];
   for (const tpl of templates) {
     for (const i of tpl.items) {
       if (out.length >= limit) return out;
