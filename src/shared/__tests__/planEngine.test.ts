@@ -43,6 +43,12 @@ describe('Task safety gate (FIX-SAFETY-01, E-10)', () => {
     expect(evaluateTaskSafetyGate('Mount shelf', { wall_type: 'unsure', shelf_load: 'heavy' })?.flags).toContain('wall_load');
   });
 
+  it('unanswered wall type on a heavy mounting task counts as unknown (hollow)', () => {
+    expect(evaluateTaskSafetyGate('Install a heavy bookshelf on the bedroom wall', {})?.flags).toContain('wall_load');
+    expect(evaluateTaskSafetyGate('Install a heavy bookshelf', { wall_type: 'brick' })).toBeNull();
+    expect(evaluateTaskSafetyGate('Heavy balcony deep clean', {})).toBeNull();
+  });
+
   it('brick wall or light load does not trigger the gate', () => {
     expect(evaluateTaskSafetyGate('Mount shelf', { wall_type: 'brick', shelf_load: 'heavy' })).toBeNull();
     expect(evaluateTaskSafetyGate('Mount shelf', { wall_type: 'hollow', shelf_load: 'light' })).toBeNull();

@@ -6,6 +6,8 @@ import { evaluateItemSafety } from './safetyEngine';
 
 const HOLLOW_WALL_ANSWERS = ['hollow', 'unsure'];
 
+const SOLID_WALL_ANSWERS = ['brick', 'concrete', 'wood'];
+const MOUNTING_TEXT = /\b(shelf|shelves|bookshelf|mount|mounting|bracket|brackets|hang|hanging|tv|mirror|cabinet|wall)\b/i;
 const HOLLOW_WALL_TEXT = /\b(hollow|drywall|dry wall|plasterboard|gypsum|partition wall)\b/i;
 const HEAVY_LOAD_TEXT = /\b(heavy|(1[6-9]|[2-9]\d|\d{3,})\s*kg)\b/i;
 const ELECTRICAL_TEXT =
@@ -27,7 +29,10 @@ export function evaluateTaskSafetyGate(
 
   const wallType = (answers.wall_type || '').toLowerCase();
   const shelfLoad = (answers.shelf_load || '').toLowerCase();
-  const hollowWall = HOLLOW_WALL_ANSWERS.includes(wallType) || (!wallType && HOLLOW_WALL_TEXT.test(text));
+  // An unanswered wall type on a mounting task is unknown, and unknown counts as hollow
+  const hollowWall = wallType
+    ? HOLLOW_WALL_ANSWERS.includes(wallType) || !SOLID_WALL_ANSWERS.includes(wallType)
+    : HOLLOW_WALL_TEXT.test(text) || MOUNTING_TEXT.test(text);
   const heavyLoad = shelfLoad === 'heavy' || (!shelfLoad && HEAVY_LOAD_TEXT.test(text));
   if (hollowWall && heavyLoad) flags.push('wall_load');
 
