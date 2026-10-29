@@ -81,8 +81,8 @@ export const CATALOG: CatalogItem[] = [
   c('wall_brackets', 'Shelf Brackets', 'diy', ['brackets', 'shelf bracket', 'l brackets'], true),
 
   // Electronics
-  c('extension_cord', 'Extension Reel', 'electronics', ['extension cord', 'extension cable', 'cable reel', 'extension wire']),
-  c('power_strip', 'Power Strip', 'electronics', ['extension board', 'multi plug', 'spike guard', 'surge protector']),
+  c('extension_cord', 'Extension Reel', 'electronics', ['extension cord', 'extension cable', 'cable reel', 'extension wire', 'power cord', 'power cable', 'long wire']),
+  c('power_strip', 'Power Strip', 'electronics', ['extension board', 'multi plug', 'spike guard', 'surge protector', 'power board', 'plug board', 'multi socket']),
   c('laptop_machine', 'Laptop', 'electronics', ['laptop', 'notebook computer', 'computer'], false, true),
   c('mini_projector', 'Portable Projector', 'electronics', ['projector', 'mini projector', 'beamer'], false, true),
   c('projector_screen', 'Projector Screen', 'electronics', ['screen', 'projection screen']),
