@@ -12,6 +12,7 @@ import {
   buildAdminLeaderboard,
   buildAdminOverview,
   buildAdminUsers,
+  buildAdminWanted,
   filterAdminListings,
   filterAdminRequests,
 } from '@sidekit/shared';
@@ -32,7 +33,12 @@ const queryString = (v: unknown): string | undefined => (typeof v === 'string' &
 
 // GET /api/admin/overview
 adminRouter.get('/overview', (_req, res) => {
-  res.json(buildAdminOverview(db.users, db.listings, db.requests));
+  res.json(buildAdminOverview(db.users, db.listings, db.requests, db.demand));
+});
+
+// GET /api/admin/wanted — "Notify me when available" requests grouped per item
+adminRouter.get('/wanted', (_req, res) => {
+  res.json(buildAdminWanted(db.demand, db.users, db.listings));
 });
 
 // GET /api/admin/queue (legacy moderation queue)

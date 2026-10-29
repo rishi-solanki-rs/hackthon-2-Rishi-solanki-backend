@@ -2,6 +2,7 @@ import { Listing, ModerationStatus, isPubliclyVisible } from '../types/listing';
 import { Request, RequestStatus } from '../types/request';
 import { User } from '../types/user';
 import { AppNotification } from '../types/notification';
+import { DemandEntry } from '../types/api';
 import { maskFlat, maskPhone } from './safetyEngine';
 
 export const AUTO_HIDE_REPORT_THRESHOLD = 3;
@@ -36,6 +37,7 @@ export interface AdminOverview {
     hidden: number;
     requests: number;
     openRequests: number;
+    wantedItems: number;
   };
   listingsByCategory: Record<string, number>;
   listingsByMode: Record<string, number>;
@@ -105,7 +107,7 @@ function userBase(u: User) {
   };
 }
 
-export function buildAdminOverview(users: User[], listings: Listing[], requests: Request[]): AdminOverview {
+export function buildAdminOverview(users: User[], listings: Listing[], requests: Request[], demand: DemandEntry[] = []): AdminOverview {
   return {
     counts: {
       users: users.filter((u) => u.role !== 'admin').length,
@@ -116,6 +118,7 @@ export function buildAdminOverview(users: User[], listings: Listing[], requests:
       hidden: listings.filter((l) => l.moderationStatus === 'hidden_by_admin').length,
       requests: requests.length,
       openRequests: requests.filter((r) => ['pending', 'accepted', 'handed_over'].includes(r.status)).length,
+      wantedItems: buildAdminWanted(demand, users, listings).filter((w) => w.status === 'open').length,
     },
     listingsByCategory: countBy(listings, (l) => l.category),
     listingsByMode: countBy(listings, (l) => l.mode),
@@ -187,6 +190,55 @@ export function buildAdminLeaderboard(users: User[], listings: Listing[], reques
     .map(([itemKey, count]) => ({ itemKey, requests: count, title: listings.find((l) => l.itemKey === itemKey)?.title || itemKey }));
 
   return { lenders, towers, popularItems };
+}
+
+export interface AdminWantedItem {
+  itemKey: string;
+  itemName: string;
+  requestCount: number;
+  firstRequestedAt: string;
+  lastRequestedAt: string;
+  /** Residents who asked; contact details are never included. */
+  requesters: { userId: string; displayName: string; tower: string; requestedAt: string }[];
+  /** Public listings that now match the item. */
+  availableListings: { id: string; title: string; ownerDisplayName?: string; mode: Listing['mode'] }[];
+  status: 'open' | 'available';
+}
+
+/** "Notify me when available" requests grouped per item for the admin console. */
+export function buildAdminWanted(demand: DemandEntry[], users: User[], listings: Listing[]): AdminWantedItem[] {
+  const byKey = new Map<string, AdminWantedItem>();
+  const userById = new Map(users.map((u) => [u.id, u]));
+  for (const d of demand) {
+    const user = userById.get(d.userId);
+    const row =
+      byKey.get(d.itemKey) ??
+      ({
+        itemKey: d.itemKey,
+        itemName: d.itemName,
+        requestCount: 0,
+        firstRequestedAt: d.createdAt,
+        lastRequestedAt: d.createdAt,
+        requesters: [],
+        availableListings: [],
+        status: 'open',
+      } as AdminWantedItem);
+    row.requestCount += 1;
+    if (d.createdAt < row.firstRequestedAt) row.firstRequestedAt = d.createdAt;
+    if (d.createdAt > row.lastRequestedAt) row.lastRequestedAt = d.createdAt;
+    row.requesters.push({ userId: d.userId, displayName: user?.displayName || 'Former resident', tower: user?.tower || '—', requestedAt: d.createdAt });
+    byKey.set(d.itemKey, row);
+  }
+  for (const row of byKey.values()) {
+    row.availableListings = listings
+      .filter((l) => isPubliclyVisible(l) && l.itemKey === row.itemKey)
+      .map((l) => ({ id: l.id, title: l.title, ownerDisplayName: l.ownerDisplayName, mode: l.mode }));
+    row.status = row.availableListings.length > 0 ? 'available' : 'open';
+    row.requesters.sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+  }
+  return [...byKey.values()].sort(
+    (a, b) => Number(a.status === 'available') - Number(b.status === 'available') || b.requestCount - a.requestCount || b.lastRequestedAt.localeCompare(a.lastRequestedAt)
+  );
 }
 
 export type ModerationResult =

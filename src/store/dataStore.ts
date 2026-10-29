@@ -21,6 +21,7 @@ import {
   SEED_REQUESTS,
   SEED_LISTING_IDS,
   SEED_SHOP_IDS,
+  SEED_DEMAND,
 } from '@sidekit/shared';
 import {
   isMongoConnected,
@@ -53,7 +54,7 @@ class ServerDataStore {
     this.requests = JSON.parse(JSON.stringify(SEED_REQUESTS));
     this.plans = JSON.parse(JSON.stringify(SEED_PLANS));
     this.shops = JSON.parse(JSON.stringify(SEED_SHOPS));
-    this.demand = [];
+    this.demand = JSON.parse(JSON.stringify(SEED_DEMAND));
     this.notifications = [
       {
         id: 'notif_welcome',
@@ -93,6 +94,7 @@ class ServerDataStore {
         PlanModel.insertMany(this.plans),
         ShopModel.insertMany(this.shops),
         NotificationModel.insertMany(this.notifications),
+        DemandModel.insertMany(this.demand),
       ]);
       console.log('MongoDB Atlas: Collections reset to fresh demo seed state.');
     } catch (e: any) {

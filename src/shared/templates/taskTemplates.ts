@@ -1,6 +1,6 @@
 import { PlanChecklistItem } from '../types/plan';
 import { ListingCategory } from '../types/listing';
-import { CATALOG, getCatalogItem, matchCatalogItem, resolveItemImage, searchCatalog } from '../catalog/catalog';
+import { CATALOG, CatalogItem, getCatalogItem, matchCatalogItem, resolveItemImage, searchCatalog } from '../catalog/catalog';
 import { evaluateItemSafety } from '../engines/safetyEngine';
 
 interface TemplateItem {
@@ -363,11 +363,58 @@ export function catalogChecklistItem(
   };
 }
 
+const ITEM_REQUEST_LEAD = /^(?:i\s+)?(?:need|want|looking\s+for|require|search(?:ing)?\s+for|borrow|rent|buy|get|find)\b(?:\s+(?:a|an|the|some|to\s+borrow|to\s+rent|to\s+buy))?\s*/i;
+const HINDI_NEED = /\s*(?:chahiye|chaiye|chahie|chahiya|chaahiye|chiye|chahye)(?:\s+(?:hai|he|tha|thi))?\s*$/i;
+const HINDI_LEAD = /^(?:mujhe|meko|muje|mereko|mere\s+ko|hume|humko)\s+(?:ek\s+)?/i;
+const TASK_WORDS =
+  /\b(install|installation|mount|mounting|fix|repair|clean|cleaning|paint|painting|build|make|create|do|organi[sz]e|plan|party|shift|shifting|move|moving|assemble|decorate|cook|cooking|bake|baking|celebrate|trip|camping|gardening|drawing|lagana|lagwana|banana|saaf|theek|khelna|karna)\b/i;
+
+const displayName = (s: string) =>
+  s
+    .split(/\s+/)
+    .map((w) => (w.length <= 2 && !/^(a|of|to|in|on)$/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(' ');
+
+export interface DirectItemRequest {
+  name: string;
+  item?: CatalogItem;
+}
+
+/**
+ * Detects "I need X" style requests ("need washing machine", "RO chahiye") where the resident names
+ * the item itself rather than a job. Those get the item, not a project checklist.
+ */
+export function parseDirectItemRequest(task: string): DirectItemRequest | null {
+  const raw = task.trim().replace(/[.!?]+$/, '');
+  if (!raw || raw.split(/\s+/).length > 7 || TASK_WORDS.test(raw)) return null;
+  const hasLead = ITEM_REQUEST_LEAD.test(raw) || HINDI_LEAD.test(raw);
+  const hasHindiNeed = HINDI_NEED.test(raw);
+  const stripped = raw.replace(HINDI_LEAD, '').replace(ITEM_REQUEST_LEAD, '');
+  // "want to create …" describes an action, not an item
+  if (/^to\s/i.test(stripped)) return null;
+  const name = stripped.replace(HINDI_NEED, '').replace(/^(?:a|an|the|ek)\s+/i, '').trim();
+  if (!name || name.split(/\s+/).length > 4) return null;
+  const item = matchCatalogItem(name);
+  if (!hasLead && !hasHindiNeed && !item) return null;
+  return { name: item?.name || displayName(name), item };
+}
+
+/** Checklist for a direct item request: just the named item. */
+export function buildItemRequestChecklist(req: DirectItemRequest): { category: string; items: PlanChecklistItem[] } {
+  const key = req.item?.itemKey || req.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return {
+    category: req.item?.category || 'general',
+    items: [catalogChecklistItem(key, 1, 'The item you asked for.', 'template', req.item ? undefined : req.name)],
+  };
+}
+
 /**
  * Deterministic checklist from the best-matching template (used when AI is unavailable).
  * Secondary matching templates contribute up to 4 extra items so mixed tasks are covered.
  */
 export function buildTemplateChecklist(task: string): { category: string; items: PlanChecklistItem[] } {
+  const direct = parseDirectItemRequest(task);
+  if (direct) return buildItemRequestChecklist(direct);
   const [best, ...rest] = rankTemplates(task);
   const items = best.items.map((i) => catalogChecklistItem(i.key, i.qty, i.reason, 'template'));
   const seen = new Set(items.map((i) => i.itemKey));

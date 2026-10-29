@@ -250,7 +250,7 @@ export function recommendForItem(
   if (repairs.length > 0) {
     return { method: 'notify', reason: `Nobody lists this yet. If you own a broken one, ${repairs[0].ownerDisplayName} repairs it from ${inr(repairs[0].unitPrice ?? 0)}.` };
   }
-  return { method: 'notify', reason: 'Nobody lists this yet — register interest and we will notify you.' };
+  return { method: 'notify', reason: 'Nobody lists this yet — request it so the Estate Office knows residents need it.' };
 }
 
 export function buildPlanOptionsMatrix(

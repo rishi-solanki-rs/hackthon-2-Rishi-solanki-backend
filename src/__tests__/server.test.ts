@@ -403,13 +403,17 @@ describe('Plans: safety gate, options scoping and demand', () => {
   });
 
   it('demand registration feeds most-wanted impact stats once per user', async () => {
-    const first = await request(app).post('/api/demand').set('x-demo-user-id', 'usr_rishi').send({ itemKey: 'tile_cutter', itemName: 'Tile Cutter' });
+    const first = await request(app).post('/api/demand').set('x-demo-user-id', 'usr_rishi').send({ itemKey: 'sewing_machine', itemName: 'Sewing Machine' });
     expect(first.status).toBe(201);
-    const again = await request(app).post('/api/demand').set('x-demo-user-id', 'usr_rishi').send({ itemKey: 'tile_cutter', itemName: 'Tile Cutter' });
+    const again = await request(app).post('/api/demand').set('x-demo-user-id', 'usr_rishi').send({ itemKey: 'sewing_machine', itemName: 'Sewing Machine' });
     expect(again.body.alreadyRegistered).toBe(true);
     const impact = await request(app).get('/api/impact');
     expect(impact.body.includesSampleData).toBe(true);
     expect(Array.isArray(impact.body.mostWanted)).toBe(true);
+    const wanted = await request(app).get('/api/admin/wanted').set('x-demo-user-id', 'usr_admin');
+    const sewing = wanted.body.find((w: any) => w.itemKey === 'sewing_machine');
+    expect(sewing.requestCount).toBe(3);
+    expect(sewing.requesters.some((r: any) => r.userId === 'usr_rishi')).toBe(true);
   });
 
   it('member listings wait for admin approval and stay out of browse until approved', async () => {
@@ -472,7 +476,7 @@ describe('Plans: safety gate, options scoping and demand', () => {
   });
 
   it('admin console endpoints return masked, scoped data', async () => {
-    for (const path of ['overview', 'listings', 'users', 'requests', 'leaderboard', 'settings']) {
+    for (const path of ['overview', 'listings', 'users', 'requests', 'leaderboard', 'settings', 'wanted']) {
       expect((await request(app).get(`/api/admin/${path}`).set('x-demo-user-id', 'usr_amit')).status).toBe(403);
       expect((await request(app).get(`/api/admin/${path}`).set('x-demo-user-id', 'usr_admin')).status).toBe(200);
     }

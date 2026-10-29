@@ -30,7 +30,8 @@ export function computeMostWanted(demand: DemandEntry[], limit = 5): MostWantedI
   for (const d of demand) {
     const existing = byKey.get(d.itemKey);
     if (existing) existing.count += 1;
-    else byKey.set(d.itemKey, { itemKey: d.itemKey, itemName: d.itemName, count: 1, isSample: false });
+    else byKey.set(d.itemKey, { itemKey: d.itemKey, itemName: d.itemName, count: 1, isSample: d.id.startsWith('dmd_seed_') });
+    if (existing && d.id.startsWith('dmd_seed_')) existing.isSample = true;
   }
   return Array.from(byKey.values())
     .sort((a, b) => b.count - a.count || a.itemName.localeCompare(b.itemName))
