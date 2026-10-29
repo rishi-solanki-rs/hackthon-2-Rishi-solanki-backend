@@ -101,6 +101,21 @@ describe('Plan options matrix', () => {
     expect(drill.rankedOptions.every((o) => o.isSample === true)).toBe(true);
   });
 
+  it("never offers the requester's own listings back to them (BUG-P0-01)", () => {
+    const matrix = buildPlanOptionsMatrix(
+      { ...basePlan, items: [item('extension_cord', 'Extension Reel'), item('drill_machine', 'Hammer Drill')] },
+      SEED_LISTINGS,
+      SEED_SHOPS,
+      { requesterId: 'usr_rishi' }
+    );
+    const allOwners = matrix.items.flatMap((i) => i.rankedOptions).map((o) => o.listingId && SEED_LISTINGS.find((l) => l.id === o.listingId)?.ownerId);
+    expect(allOwners).not.toContain('usr_rishi');
+    const cord = matrix.items.find((i) => i.itemKey === 'extension_cord')!;
+    expect(cord.requesterListsItem).toBe(true);
+    // Rishi's only cord is excluded, but the hardware shop option remains
+    expect(cord.rankedOptions.every((o) => o.source === 'external_shop')).toBe(true);
+  });
+
   it('excludes gated rows and reports them as suppressed', () => {
     const matrix = buildPlanOptionsMatrix(
       { ...basePlan, clarificationAnswers: { wall_type: 'hollow', shelf_load: 'heavy' } },

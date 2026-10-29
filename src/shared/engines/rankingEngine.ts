@@ -6,6 +6,7 @@ export interface RankingContext {
   neededQuantity: number;
   durationDays: number; // Defaults to 1 if not specified
   requesterTower?: string;
+  requesterId?: string; // The requester's own listings are never offered back to them
   newOnly?: boolean;    // If true, filters out sell_used listings
 }
 
@@ -38,7 +39,7 @@ export function rankOptionsForItem(
   externalShops: ExternalShop[],
   context: RankingContext
 ): RankedOption[] {
-  const { neededQuantity = 1, durationDays = 1, requesterTower, newOnly = false } = context;
+  const { neededQuantity = 1, durationDays = 1, requesterTower, requesterId, newOnly = false } = context;
 
   // 1. Find reference new shop item for this itemKey (if available)
   let referenceShop: ExternalShop | undefined;
@@ -58,7 +59,11 @@ export function rankOptionsForItem(
 
   // Filter community listings matching this itemKey and not hidden
   const matchingListings = communityListings.filter(
-    (l) => l.itemKey === itemKey && l.status !== 'closed' && l.moderationStatus !== 'hidden_by_admin'
+    (l) =>
+      l.itemKey === itemKey &&
+      l.status !== 'closed' &&
+      l.moderationStatus !== 'hidden_by_admin' &&
+      (!requesterId || l.ownerId !== requesterId)
   );
 
   const rawOptions: RankedOption[] = [];

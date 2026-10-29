@@ -10,6 +10,7 @@ import {
   findCompetingRequestsToDecline,
   maskPhone,
   maskFlat,
+  computeRequestTotal,
 } from '@sidekit/shared';
 
 const PENDING_EXPIRY_MS = 72 * 3600 * 1000;
@@ -153,13 +154,9 @@ requestRouter.post('/', (req, res) => {
     return res.status(400).json({ message: 'You already have a pending or active request for this item.' });
   }
 
-  let totalPrice = 0;
-  if (data.kind === 'rent' && listing.price) {
-    const days = Math.max(1, Math.round((new Date(neededTo!).getTime() - new Date(neededFrom!).getTime()) / (3600 * 24 * 1000)));
-    totalPrice = listing.price * days * requestedQuantity;
-  } else if (data.kind === 'buy' && listing.price) {
-    totalPrice = listing.price * requestedQuantity;
-  }
+  // Unknown prices are stored as undefined (never 0) so the UI shows "Price not available"
+  const total = computeRequestTotal(listing.price, data.kind, requestedQuantity, neededFrom, neededTo);
+  const totalPrice = total === null ? undefined : total;
 
   const owner = db.getUser(listing.ownerId);
   const note = typeof data.note === 'string' ? data.note.trim().slice(0, 500) : undefined;
@@ -411,6 +408,11 @@ requestRouter.post('/:id/return', (req, res) => {
     target.thankYouNote = req.body.thankYouNote.trim().slice(0, 500);
   }
 
+  const owner = db.getUser(target.ownerId);
+  if (owner) {
+    db.saveUser({ ...owner, itemsSharedCount: (owner.itemsSharedCount || 0) + 1 });
+  }
+
   if (target.kind === 'buy') {
     const listing = db.getListing(target.listingId);
     if (listing) {
@@ -424,5 +426,61 @@ requestRouter.post('/:id/return', (req, res) => {
   }
 
   db.saveRequest(target);
+  res.json(sanitizeRequest(target));
+});
+
+// POST /api/requests/:id/thank-you — the borrower thanks the owner after completion
+requestRouter.post('/:id/thank-you', (req, res) => {
+  const target = db.getRequest(req.params.id);
+  if (!target) {
+    return res.status(404).json({ message: 'Request not found' });
+  }
+  if (target.requesterId !== currentUserId(req)) {
+    return res.status(403).json({ message: 'Only the requester can send a thank-you note.' });
+  }
+  if (target.status !== 'completed') {
+    return res.status(400).json({ message: 'You can send a thank-you note once the request is completed.' });
+  }
+  if (target.thankYouNote) {
+    return res.status(400).json({ message: 'You already sent a thank-you note for this request.' });
+  }
+
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 300) : '';
+  if (message.length < 2) {
+    return res.status(400).json({ message: 'Please write a short note.' });
+  }
+
+  target.thankYouNote = message;
+  target.updatedAt = new Date().toISOString();
+  db.saveRequest(target);
+
+  const owner = db.getUser(target.ownerId);
+  if (owner) {
+    db.saveUser({
+      ...owner,
+      thankYouNotes: [
+        ...(owner.thankYouNotes || []),
+        {
+          id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          fromUserId: target.requesterId,
+          fromUserName: db.getUser(target.requesterId)?.displayName || target.requesterName || 'A neighbour',
+          message,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+  }
+
+  notify(
+    {
+      userId: target.ownerId,
+      type: 'thank_you',
+      title: 'You received a thank-you note',
+      message: `${target.requesterName || 'A neighbour'} thanked you for "${target.listingTitle}".`,
+      link: '/me',
+    },
+    'thank_you'
+  );
+
   res.json(sanitizeRequest(target));
 });

@@ -75,6 +75,7 @@ export interface PlanOptionsMatrix {
     neededQuantity: number;
     missingQuantity: number;
     isConsumable: boolean;
+    requesterListsItem?: boolean; // The requester already lists this item themselves
     rankedOptions: RankedOption[];
   }>;
 }

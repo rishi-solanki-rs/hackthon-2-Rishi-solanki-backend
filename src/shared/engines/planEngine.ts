@@ -101,8 +101,43 @@ export function normalizeChecklistItems(items: PlanChecklistItem[]): PlanCheckli
     .map(({ blocked: _blocked, ...rest }) => rest as PlanChecklistItem);
 }
 
+const DURATION_DAYS: Record<string, number> = {
+  'a few hours': 1,
+  '1 day': 1,
+  'full weekend': 2,
+};
+
+/** Suggested booking length from the plan's bounded duration answer. */
+export function suggestedBookingDays(answers?: Record<string, string>): number {
+  return DURATION_DAYS[(answers?.duration || '').toLowerCase()] ?? 1;
+}
+
+/** Number of billable days for a [from, to) booking; at least one. */
+export function bookingDays(neededFrom?: string, neededTo?: string): number {
+  if (!neededFrom || !neededTo) return 1;
+  const ms = new Date(neededTo).getTime() - new Date(neededFrom).getTime();
+  return Number.isFinite(ms) ? Math.max(1, Math.round(ms / 86400000)) : 1;
+}
+
+/**
+ * Request total in INR. Null when the listing has no price (unknown stays unknown);
+ * free borrows are genuinely 0.
+ */
+export function computeRequestTotal(
+  price: number | null | undefined,
+  kind: 'borrow' | 'rent' | 'buy',
+  quantity: number,
+  neededFrom?: string,
+  neededTo?: string
+): number | null {
+  if (kind === 'borrow') return 0;
+  if (price === null || price === undefined) return null;
+  return kind === 'rent' ? price * bookingDays(neededFrom, neededTo) * quantity : price * quantity;
+}
+
 export interface PlanOptionsContext {
   requesterTower?: string;
+  requesterId?: string;
   newOnly?: boolean;
 }
 
@@ -129,17 +164,22 @@ export function buildPlanOptionsMatrix(
         neededQuantity: item.missingQuantity,
         durationDays: 1,
         requesterTower: context.requesterTower,
+        requesterId: context.requesterId,
         newOnly: context.newOnly ?? false,
       });
       if (item.isConsumable) {
         ranked = ranked.filter((o) => o.mode !== 'lend' && o.mode !== 'rent');
       }
+      const requesterListsItem = Boolean(
+        context.requesterId && visibleListings.some((l) => l.itemKey === item.itemKey && l.ownerId === context.requesterId)
+      );
       return {
         itemKey: item.itemKey,
         itemName: item.name,
         neededQuantity: item.neededQuantity,
         missingQuantity: item.missingQuantity,
         isConsumable: item.isConsumable,
+        requesterListsItem,
         rankedOptions: ranked,
       };
     });

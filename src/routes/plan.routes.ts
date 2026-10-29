@@ -128,6 +128,7 @@ planRouter.get('/:id/options', (req, res) => {
   res.json(
     buildPlanOptionsMatrix(plan, db.listings, db.shops, {
       requesterTower: user?.tower,
+      requesterId: userId,
       newOnly: req.query.newOnly === 'true',
     })
   );

@@ -281,6 +281,85 @@ describe('Privacy, admin and listing guards', () => {
   });
 });
 
+describe('Thank-you notes, listings visibility and profiles', () => {
+  beforeEach(() => {
+    db.resetToDefaults();
+  });
+
+  async function completedLadderLoan() {
+    const created = await request(app)
+      .post('/api/requests')
+      .set('x-demo-user-id', 'usr_rishi')
+      .send({ listingId: 'lst_ladder_rent', kind: 'rent', requestedQuantity: 1, neededFrom: '2026-12-01', neededTo: '2026-12-03' });
+    const ownerId = db.getRequest(created.body.id)!.ownerId;
+    await request(app).post(`/api/requests/${created.body.id}/accept`).set('x-demo-user-id', ownerId);
+    await request(app).post(`/api/requests/${created.body.id}/handover`).set('x-demo-user-id', ownerId);
+    await request(app).post(`/api/requests/${created.body.id}/return`).set('x-demo-user-id', ownerId);
+    return { id: created.body.id as string, ownerId };
+  }
+
+  it('borrower thank-you note lands on the owner profile; completion counts as a loan', async () => {
+    const before = db.getUser('usr_deepa')!;
+    const { id, ownerId } = await completedLadderLoan();
+    expect(ownerId).toBe('usr_deepa');
+    expect(db.getUser(ownerId)!.itemsSharedCount).toBe(before.itemsSharedCount + 1);
+
+    expect((await request(app).post(`/api/requests/${id}/thank-you`).set('x-demo-user-id', ownerId).send({ message: 'Self praise' })).status).toBe(403);
+    const ok = await request(app).post(`/api/requests/${id}/thank-you`).set('x-demo-user-id', 'usr_rishi').send({ message: 'Sturdy ladder, thanks!' });
+    expect(ok.status).toBe(200);
+    expect(db.getUser(ownerId)!.thankYouNotes!.some((n) => n.message === 'Sturdy ladder, thanks!' && n.fromUserId === 'usr_rishi')).toBe(true);
+    expect((await request(app).post(`/api/requests/${id}/thank-you`).set('x-demo-user-id', 'usr_rishi').send({ message: 'Again' })).status).toBe(400);
+  });
+
+  it('thank-you notes are only possible after completion', async () => {
+    const created = await request(app)
+      .post('/api/requests')
+      .set('x-demo-user-id', 'usr_rishi')
+      .send({ listingId: 'lst_ladder_rent', kind: 'rent', requestedQuantity: 1, neededFrom: '2026-12-01', neededTo: '2026-12-03' });
+    expect((await request(app).post(`/api/requests/${created.body.id}/thank-you`).set('x-demo-user-id', 'usr_rishi').send({ message: 'Early' })).status).toBe(400);
+  });
+
+  it('unpriced rentals keep an unknown total instead of zero', async () => {
+    const res = await request(app)
+      .post('/api/requests')
+      .set('x-demo-user-id', 'usr_rishi')
+      .send({ listingId: 'lst_unpriced_saw', kind: 'rent', requestedQuantity: 1, neededFrom: '2026-12-01', neededTo: '2026-12-02' });
+    expect(res.status).toBe(201);
+    expect(res.body.totalPrice).toBeUndefined();
+  });
+
+  it('closed listings never appear in browse, but the owner still sees them in My Listings', async () => {
+    await request(app).patch('/api/listings/lst_drill_free/status').set('x-demo-user-id', 'usr_rishi').send({ status: 'closed' });
+    const browse = await request(app).get('/api/listings').set('x-demo-user-id', 'usr_rishi');
+    expect(browse.body.some((l: any) => l.id === 'lst_drill_free')).toBe(false);
+    const mine = await request(app).get('/api/listings?ownerId=usr_rishi').set('x-demo-user-id', 'usr_rishi');
+    expect(mine.body.some((l: any) => l.id === 'lst_drill_free')).toBe(true);
+    const asOther = await request(app).get('/api/listings?ownerId=usr_rishi').set('x-demo-user-id', 'usr_amit');
+    expect(asOther.body.some((l: any) => l.id === 'lst_drill_free')).toBe(false);
+  });
+
+  it('moderation-hidden listings cannot be edited by their owner', async () => {
+    const listing = db.getListing('lst_spam_drill')!;
+    listing.moderationStatus = 'hidden_by_admin';
+    const res = await request(app).patch('/api/listings/lst_spam_drill').set('x-demo-user-id', listing.ownerId).send({ title: 'Totally fine drill' });
+    expect(res.status).toBe(400);
+  });
+
+  it('options never include the requester\'s own listing', async () => {
+    const plan = await request(app).post('/api/plans').set('x-demo-user-id', 'usr_rishi').send({ taskDescription: 'Mount shelf on wall with a drill' });
+    const options = await request(app).get(`/api/plans/${plan.body.id}/options`).set('x-demo-user-id', 'usr_rishi');
+    const listingIds = options.body.items.flatMap((i: any) => i.rankedOptions).map((o: any) => o.listingId).filter(Boolean);
+    expect(listingIds).not.toContain('lst_drill_free');
+  });
+
+  it('profile endpoint returns deterministic counters and badges', async () => {
+    const res = await request(app).get('/api/users/usr_amit/profile');
+    expect(res.status).toBe(200);
+    expect(res.body.badges.find((b: any) => b.name === 'helper').earned).toBe(true);
+    expect(res.body.stats.activeListings).toBeGreaterThan(0);
+  });
+});
+
 describe('Plans: safety gate, options scoping and demand', () => {
   beforeEach(() => {
     db.resetToDefaults();

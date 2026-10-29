@@ -6,7 +6,8 @@ export type NotificationType =
   | 'handover_reminder'
   | 'return_due'
   | 'listing_reported'
-  | 'listing_hidden';
+  | 'listing_hidden'
+  | 'thank_you';
 
 export interface AppNotification {
   id: string;

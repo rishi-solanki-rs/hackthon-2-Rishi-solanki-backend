@@ -13,6 +13,7 @@ export * from './engines/rankingEngine';
 export * from './engines/safetyEngine';
 export * from './engines/repairEngine';
 export * from './engines/planEngine';
+export * from './engines/profileEngine';
 
 // Seed Fixtures
 export * from './seeds';

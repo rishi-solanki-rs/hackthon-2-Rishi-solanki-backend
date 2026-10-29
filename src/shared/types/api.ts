@@ -7,6 +7,7 @@ export interface ListingSearchFilters {
   mode?: ListingMode | 'all';
   tower?: string;
   onlyAvailable?: boolean;
+  ownerId?: string; // When it is the current user, their closed listings are included too
 }
 
 export interface CreateListingInput {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../store/dataStore';
-import { User } from '@sidekit/shared';
+import { User, computeUserProfile } from '@sidekit/shared';
 
 export const userRouter = Router();
 
@@ -16,6 +16,15 @@ function publicUser(user: User): Omit<User, 'phone' | 'email' | 'flat'> {
 // GET /api/users — public list (no phone/email/flat)
 userRouter.get('/', (req, res) => {
   res.json(db.users.map(publicUser));
+});
+
+// GET /api/users/:id/profile — deterministic counters and badges
+userRouter.get('/:id/profile', (req, res) => {
+  const user = db.getUser(req.params.id);
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+  res.json(computeUserProfile(user, db.users, db.listings, db.requests));
 });
 
 // GET /api/users/:id — public profile (no phone/email/flat)

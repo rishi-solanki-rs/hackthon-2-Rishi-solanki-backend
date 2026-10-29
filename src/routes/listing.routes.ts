@@ -49,13 +49,18 @@ function validateModeForItem(mode: ListingMode, text: string): string | null {
 
 // GET /api/listings
 listingRouter.get('/', (req, res) => {
-  // Closed listings stay visible to their owner (My Listings), not to everyone else
   const userId = currentUserId(req);
-  let listings = db.listings.filter(
-    (l) => l.moderationStatus !== 'hidden_by_admin' && (l.status !== 'closed' || l.ownerId === userId)
-  );
+  const { query, category, mode, tower, onlyAvailable, ownerId } = req.query;
 
-  const { query, category, mode, tower, onlyAvailable } = req.query;
+  let listings: Listing[];
+  if (typeof ownerId === 'string' && ownerId) {
+    // Owners see all of their own listings (including closed and hidden) in My Listings
+    listings = db.listings.filter(
+      (l) => l.ownerId === ownerId && (ownerId === userId || (l.status !== 'closed' && l.moderationStatus !== 'hidden_by_admin'))
+    );
+  } else {
+    listings = db.listings.filter((l) => l.moderationStatus !== 'hidden_by_admin' && l.status !== 'closed');
+  }
 
   if (query && typeof query === 'string') {
     const q = query.toLowerCase().trim();
@@ -148,9 +153,7 @@ listingRouter.post('/', (req, res) => {
     reportedBy: [],
     pickupNote: str(data.pickupNote, 300),
     comfortRules: data.comfortRules && typeof data.comfortRules === 'object' ? data.comfortRules : undefined,
-    photos: Array.isArray(data.photos) && data.photos.length
-      ? data.photos.filter((p) => typeof p === 'string').slice(0, 5)
-      : ['https://images.unsplash.com/photo-1504148455328-c376907d081c?w=500'],
+    photos: Array.isArray(data.photos) ? data.photos.filter((p) => typeof p === 'string').slice(0, 5) : [],
     ownerDisplayName: user.displayName,
     ownerTower: user.tower,
     isSample: false,
@@ -172,6 +175,9 @@ listingRouter.patch('/:id', (req, res) => {
   // FIX-P2-02: Ownership check
   if (listing.ownerId !== currentUserId(req)) {
     return res.status(403).json({ message: 'You can only edit your own listings.' });
+  }
+  if (listing.moderationStatus === 'hidden_by_admin') {
+    return res.status(400).json({ message: 'This listing is under moderation review and cannot be edited.' });
   }
 
   const data: UpdateListingInput = req.body || {};
