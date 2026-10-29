@@ -49,7 +49,11 @@ function validateModeForItem(mode: ListingMode, text: string): string | null {
 
 // GET /api/listings
 listingRouter.get('/', (req, res) => {
-  let listings = db.listings.filter((l) => l.moderationStatus !== 'hidden_by_admin');
+  // Closed listings stay visible to their owner (My Listings), not to everyone else
+  const userId = currentUserId(req);
+  let listings = db.listings.filter(
+    (l) => l.moderationStatus !== 'hidden_by_admin' && (l.status !== 'closed' || l.ownerId === userId)
+  );
 
   const { query, category, mode, tower, onlyAvailable } = req.query;
 
